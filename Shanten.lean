@@ -230,11 +230,69 @@ def pairCount (hand : Hand) : Nat :=
 def distinctTileCount (hand : Hand) : Nat :=
   (Finset.univ.filter fun tile => 0 < hand.counts tile).card
 
+def presentTiles (hand : Hand) : Finset Tile :=
+  Finset.univ.filter fun tile => 0 < hand.counts tile
+
+lemma distinctTileCount_eq_presentTiles_card (hand : Hand) :
+    distinctTileCount hand = (presentTiles hand).card := by
+  rfl
+
+lemma exists_missing_tile_kind
+    (hand : Hand) (hdistinct : distinctTileCount hand < 7) :
+    ∃ tile, hand.counts tile = 0 := by
+  by_contra hmissing
+  push Not at hmissing
+  have hpresent : presentTiles hand = Finset.univ := by
+    apply Finset.eq_univ_of_forall
+    intro tile
+    simp only [presentTiles, Finset.mem_filter, Finset.mem_univ, true_and]
+    exact Nat.pos_of_ne_zero (hmissing tile)
+  have hcard : 7 ≤ Fintype.card Tile := by native_decide
+  have : 7 ≤ distinctTileCount hand := by
+    rw [distinctTileCount_eq_presentTiles_card, hpresent]
+    simpa using hcard
+  omega
+
+lemma tileCount_le_two_mul_distinctTileCount
+    (hand : Hand) (hsmall : ∀ tile, hand.counts tile ≤ 2) :
+    tileCount hand ≤ 2 * distinctTileCount hand := by
+  have hpoint :
+      ∀ tile, hand.counts tile ≤
+        if 0 < hand.counts tile then 2 else 0 := by
+    intro tile
+    by_cases hpositive : 0 < hand.counts tile
+    · simp [hpositive]
+      exact hsmall tile
+    · simp [hpositive, Nat.not_lt.mp hpositive, hsmall tile]
+  have hsum := Finset.sum_le_sum (s := Finset.univ) (fun tile _ => hpoint tile)
+  calc
+    tileCount hand ≤
+        ∑ tile : Tile, (if 0 < hand.counts tile then 2 else 0) := hsum
+    _ = 2 * distinctTileCount hand := by
+      rw [← Finset.sum_filter (s := Finset.univ)
+        (p := fun tile => 0 < hand.counts tile) (f := fun _ => 2)]
+      simp [distinctTileCount, Nat.mul_comm]
+
+lemma exists_surplus_tile_kind
+    (hand : Hand) (hcount : tileCount hand = 13)
+    (hdistinct : distinctTileCount hand < 7) :
+    ∃ tile, 3 ≤ hand.counts tile := by
+  by_contra hsurplus
+  push Not at hsurplus
+  have hsmall : ∀ tile, hand.counts tile ≤ 2 := by
+    intro tile
+    have hnot := hsurplus tile
+    omega
+  have hbound := tileCount_le_two_mul_distinctTileCount hand hsmall
+  omega
+
 /-- A concealed hand from the four-copy deck containing exactly thirteen tiles. -/
 def IsThirteenTileHand (hand : Hand) : Prop :=
  hand.fixedMelds = 0 ∧
    tileCount hand = 13 ∧
    ∀ tile, hand.counts tile ≤ 4
+
+
 
 /- A target thirteen-tile shape for seven-pairs tenpai. -/
 def sevenPairsTargetCounts (pairs : Finset Tile) (single : Tile) : TileCounts :=
@@ -385,6 +443,20 @@ def DistinctnessExchange (before after : Hand) : Prop :=
       IntroducesNewKind before drawn ∧
       discarded ≠ drawn ∧
       after = exchangeHand before discarded drawn
+
+lemma exists_distinctnessExchange
+    (hand : Hand) (h13 : IsThirteenTileHand hand)
+    (hdistinct : distinctTileCount hand < 7) :
+    ∃ next, DistinctnessExchange hand next := by
+  obtain ⟨discarded, hdiscarded⟩ :=
+    exists_surplus_tile_kind hand h13.2.1 hdistinct
+  obtain ⟨drawn, hdrawn⟩ := exists_missing_tile_kind hand hdistinct
+  have hne : discarded ≠ drawn := by
+    intro heq
+    subst heq
+    omega
+  refine ⟨exchangeHand hand discarded drawn, ?_⟩
+  exact ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
 
 /--
 An exchange that turns a singleton into a pair while discarding an extra copy
