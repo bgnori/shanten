@@ -444,6 +444,60 @@ def DistinctnessExchange (before after : Hand) : Prop :=
       discarded ≠ drawn ∧
       after = exchangeHand before discarded drawn
 
+lemma DistinctnessExchange.isThirteenTileHand
+    (h13 : IsThirteenTileHand before)
+    (h : DistinctnessExchange before after) :
+    IsThirteenTileHand after := by
+  rcases h with ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
+  rcases h13 with ⟨hfixed, hcount, hmax⟩
+  refine ⟨?_, ?_, ?_⟩
+  · change before.fixedMelds = 0
+    exact hfixed
+  · have hstep := exchangeCounts_step before discarded drawn hne (by
+      unfold IsPreservingDiscard at hdiscarded
+      omega)
+    have hfun :
+        (fun tile =>
+          exchangeCounts before discarded drawn tile +
+            (if tile = discarded then 1 else 0)) =
+        (fun tile =>
+          before.counts tile + (if tile = drawn then 1 else 0)) :=
+      funext hstep
+    have hsum := congrArg (fun f : TileCounts => ∑ tile, f tile) hfun
+    have hsum' :
+        (∑ tile, exchangeCounts before discarded drawn tile) + 1 =
+          (∑ tile, before.counts tile) + 1 := by
+      simpa [Finset.sum_add_distrib, hne, Ne.symm hne] using hsum
+    have hsum_eq :
+        (∑ tile, exchangeCounts before discarded drawn tile) =
+          ∑ tile, before.counts tile := by
+      omega
+    change (∑ tile, exchangeCounts before discarded drawn tile) = 13
+    rw [hsum_eq]
+    exact hcount
+  · intro tile
+    by_cases hdrawn' : tile = drawn
+    · subst tile
+      unfold IntroducesNewKind at hdrawn
+      change exchangeCounts before discarded drawn drawn ≤ 4
+      rw [exchangeCounts_drawn]
+      · omega
+      · exact hne
+    · by_cases hdiscarded' : tile = discarded
+      · subst tile
+        unfold IsPreservingDiscard at hdiscarded
+        change exchangeCounts before discarded drawn discarded ≤ 4
+        have hbefore := hmax discarded
+        rw [exchangeCounts_discarded]
+        · omega
+        · exact hne
+        · omega
+      · change exchangeCounts before discarded drawn tile ≤ 4
+        rw [exchangeCounts_other]
+        · exact hmax tile
+        · exact hdiscarded'
+        · exact hdrawn'
+
 lemma exists_distinctnessExchange
     (hand : Hand) (h13 : IsThirteenTileHand hand)
     (hdistinct : distinctTileCount hand < 7) :
@@ -566,6 +620,91 @@ lemma card_filter_eq_of_iff
     simp only [Finset.mem_filter, Finset.mem_univ, true_and]
     exact h x
   exact congrArg Finset.card hfilter
+
+lemma tileCount_le_distinct_add_pairCount
+    (hand : Hand) (hsmall : ∀ tile, hand.counts tile ≤ 2) :
+    tileCount hand ≤ distinctTileCount hand + pairCount hand := by
+  have hpoint :
+      ∀ tile, hand.counts tile ≤
+        (if 0 < hand.counts tile then 1 else 0) +
+          (if 2 ≤ hand.counts tile then 1 else 0) := by
+    intro tile
+    by_cases hpositive : 0 < hand.counts tile
+    · by_cases hpair : 2 ≤ hand.counts tile
+      · simpa [hpositive, hpair] using hsmall tile
+      · have hnotpair : ¬ 2 ≤ hand.counts tile := hpair
+        simp [hpositive, hpair]
+        omega
+    · have hzero : hand.counts tile = 0 :=
+        Nat.eq_zero_of_not_pos hpositive
+      simp [hzero]
+  have hsum := Finset.sum_le_sum (s := Finset.univ) (fun tile _ => hpoint tile)
+  calc
+    tileCount hand ≤
+        ∑ tile : Tile,
+          ((if 0 < hand.counts tile then 1 else 0) +
+            (if 2 ≤ hand.counts tile then 1 else 0)) := hsum
+    _ = distinctTileCount hand + pairCount hand := by
+      rw [Finset.sum_add_distrib]
+      simp [distinctTileCount, pairCount, Finset.sum_filter,
+        Nat.add_comm, Nat.add_left_comm, Nat.add_assoc]
+
+lemma exists_nonPair_kind
+    (hand : Hand) (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand < 6) :
+    ∃ tile, hand.counts tile = 1 := by
+  by_contra hnon
+  have hno : ∀ tile, hand.counts tile ≠ 1 := by
+    intro tile htile
+    exact hnon ⟨tile, htile⟩
+  have hiff : ∀ tile,
+      (0 < hand.counts tile) ↔ 2 ≤ hand.counts tile := by
+    intro tile
+    constructor
+    · intro hpositive
+      have hno' := hno tile
+      omega
+    · intro hpair
+      have hno' := hno tile
+      omega
+  have hcard :
+      distinctTileCount hand = pairCount hand := by
+    unfold distinctTileCount pairCount
+    exact card_filter_eq_of_iff
+      (fun tile => 0 < hand.counts tile)
+      (fun tile => 2 ≤ hand.counts tile)
+      hiff
+  omega
+
+lemma exists_surplus_kind_for_pairMaking
+    (hand : Hand) (hcount : tileCount hand = 13)
+    (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand < 6) :
+    ∃ tile, 3 ≤ hand.counts tile := by
+  by_contra hsurplus
+  push Not at hsurplus
+  have hsmall : ∀ tile, hand.counts tile ≤ 2 := by
+    intro tile
+    have hnot := hsurplus tile
+    omega
+  have hbound := tileCount_le_distinct_add_pairCount hand hsmall
+  omega
+
+lemma exists_pairMakingExchange
+    (hand : Hand) (h13 : IsThirteenTileHand hand)
+    (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand < 6) :
+    ∃ next, PairMakingExchange hand next := by
+  obtain ⟨drawn, hdrawn⟩ :=
+    exists_nonPair_kind hand hdistinct hpairs
+  obtain ⟨discarded, hdiscarded⟩ :=
+    exists_surplus_kind_for_pairMaking hand h13.2.1 hdistinct hpairs
+  have hne : discarded ≠ drawn := by
+    intro heq
+    subst heq
+    omega
+  refine ⟨exchangeHand hand discarded drawn, ?_⟩
+  exact ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
 
 lemma distinctTileCount_distinctnessExchange
     (h : DistinctnessExchange before after) :
@@ -752,6 +891,46 @@ lemma ReachesDistinctness.toReachesExchange :
       exact .done
   | step hstep hrest ih =>
       exact .step hstep.handStep ih
+
+lemma reaches_seven_tile_kinds
+    (hand : Hand) (h13 : IsThirteenTileHand hand)
+    (hdistinct : distinctTileCount hand ≤ 7) :
+    ∃ next,
+      ReachesDistinctness hand next (7 - distinctTileCount hand) ∧
+        distinctTileCount next = 7 := by
+  have aux : ∀ n : Nat, ∀ hand : Hand,
+      7 - distinctTileCount hand = n →
+      IsThirteenTileHand hand →
+      distinctTileCount hand ≤ 7 →
+      ∃ next,
+        ReachesDistinctness hand next n ∧
+          distinctTileCount next = 7 := by
+    intro n
+    induction n using Nat.strong_induction_on with
+    | h n ih =>
+        intro hand hn h13 hdist
+        by_cases hseven : distinctTileCount hand = 7
+        · have hnzero : n = 0 := by omega
+          subst n
+          exact ⟨hand, by simpa [hseven] using
+            (ReachesDistinctness.done : ReachesDistinctness hand hand 0), hseven⟩
+        · have hlt : distinctTileCount hand < 7 := by omega
+          obtain ⟨next, hstep⟩ :=
+            exists_distinctnessExchange hand h13 hlt
+          have hnext13 :=
+            DistinctnessExchange.isThirteenTileHand h13 hstep
+          have hnextcount :
+              distinctTileCount next = distinctTileCount hand + 1 :=
+            distinctTileCount_distinctnessExchange hstep
+          have hnnext :
+              7 - distinctTileCount next < n := by
+            omega
+          obtain ⟨final, hrest, hfinal⟩ :=
+            ih (7 - distinctTileCount next) hnnext next rfl hnext13 (by omega)
+          refine ⟨final, ?_, hfinal⟩
+          rw [show n = (7 - distinctTileCount next) + 1 by omega]
+          exact .step hstep hrest
+  exact aux (7 - distinctTileCount hand) hand rfl h13 hdistinct
 
 /-- Repeated exchanges that turn singleton kinds into pairs. -/
 inductive ReachesPairMaking : Hand → Hand → Nat → Prop
