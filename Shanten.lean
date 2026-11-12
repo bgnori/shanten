@@ -59,14 +59,16 @@ def pairTiles (tile : Tile) : Multiset Tile :=
   Multiset.replicate 2 tile
 
 /-- All 13 terminal and honor tile kinds. -/
-def orphanKinds : Finset Tile :=
-  Finset.univ.filter fun tile =>
-    match tile with
-    | .suited _ rank => rank.val = 0 ∨ rank.val = 8
-    | .honor _ => True
+noncomputable def orphanKinds : Finset Tile :=
+  by
+    classical
+    exact Finset.univ.filter fun tile =>
+      match tile with
+      | .suited _ rank => rank.val = 0 ∨ rank.val = 8
+      | .honor _ => True
 
 /-- The multiset containing one of each terminal and honor tile kind. -/
-def orphanTiles : Multiset Tile :=
+noncomputable def orphanTiles : Multiset Tile :=
   Multiset.ofList orphanKinds.toList
 
 /-- The structural hand shapes whose shanten values are considered. -/
@@ -144,13 +146,70 @@ def IsShapeShanten (hand : Hand) (shape : Shape) (value : Int) : Prop :=
         ¬ ReachesCompletion Complete shape hand smaller
 
 /--
-The overall shanten value is the least value among the applicable shapes.
-Inapplicable special shapes do not participate in this minimum.
+There is at most one shanten value for a given hand shape.
+-/
+theorem isShapeShanten_unique
+    (h₁ : IsShapeShanten hand shape value₁)
+    (h₂ : IsShapeShanten hand shape value₂) :
+    value₁ = value₂ := by
+  rcases h₁ with ⟨_, distance₁, hvalue₁, hreaches₁, hminimal₁⟩
+  rcases h₂ with ⟨_, distance₂, hvalue₂, hreaches₂, hminimal₂⟩
+  have hdistance : distance₁ = distance₂ := by
+    by_contra hne
+    rcases lt_or_gt_of_ne hne with h₁₂ | h₂₁
+    · exact hminimal₂ distance₁ h₁₂ hreaches₁
+    · exact hminimal₁ distance₂ h₂₁ hreaches₂
+  omega
+
+/- A missing value means that the shape is not a candidate for this hand. -/
+noncomputable def ShapeShanten (hand : Hand) (shape : Shape) : Option Int :=
+  by
+    classical
+    exact if h : ∃ value : Int, IsShapeShanten hand shape value then
+      some (Classical.choose h)
+    else
+      none
+
+theorem shapeShanten_eq_some_iff :
+    ShapeShanten hand shape = some value ↔
+      IsShapeShanten hand shape value := by
+  classical
+  unfold ShapeShanten
+  split
+  next h =>
+    constructor
+    · intro heq
+      have hvalue : Classical.choose h = value := Option.some.inj heq
+      exact hvalue ▸ Classical.choose_spec h
+    · intro hvalue
+      exact congrArg some (isShapeShanten_unique (Classical.choose_spec h) hvalue)
+  next h =>
+    constructor
+    · simp
+    · intro hvalue
+      exact False.elim (h ⟨value, hvalue⟩)
+
+def minOption : Option Int → Option Int → Option Int
+  | none, other => other
+  | other, none => other
+  | some value₁, some value₂ => some (min value₁ value₂)
+
+/--
+The overall shanten value is the least value among the shapes that have a
+finite value. Shapes with no value are omitted from the minimum.
+-/
+noncomputable def OverallShanten (hand : Hand) : Option Int :=
+  minOption
+    (ShapeShanten hand .standard)
+    (minOption
+      (ShapeShanten hand .sevenPairs)
+      (ShapeShanten hand .thirteenOrphans))
+
+/--
+Relational characterization of `OverallShanten`. This is retained for proofs
+that reason about a particular finite value rather than the `Option` API.
 -/
 def IsOverallShanten (hand : Hand) (value : Int) : Prop :=
-  (∃ shape : Shape, IsShapeShanten hand shape value) ∧
-    ∀ shape : Shape, ∀ otherValue : Int,
-      IsShapeShanten hand shape otherValue →
-        value ≤ otherValue
+  OverallShanten hand = some value
 
 end Shanten
