@@ -523,6 +523,59 @@ def PairMakingExchange (before after : Hand) : Prop :=
       discarded ≠ drawn ∧
       after = exchangeHand before discarded drawn
 
+lemma PairMakingExchange.isThirteenTileHand
+    (h13 : IsThirteenTileHand before)
+    (h : PairMakingExchange before after) :
+    IsThirteenTileHand after := by
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  rcases h13 with ⟨hfixed, hcount, hmax⟩
+  refine ⟨?_, ?_, ?_⟩
+  · change before.fixedMelds = 0
+    exact hfixed
+  · have hstep := exchangeCounts_step before discarded drawn hne (by
+      unfold IsPreservingDiscard at hdiscarded
+      omega)
+    have hfun :
+        (fun tile =>
+          exchangeCounts before discarded drawn tile +
+            (if tile = discarded then 1 else 0)) =
+        (fun tile =>
+          before.counts tile + (if tile = drawn then 1 else 0)) :=
+      funext hstep
+    have hsum := congrArg (fun f : TileCounts => ∑ tile, f tile) hfun
+    have hsum' :
+        (∑ tile, exchangeCounts before discarded drawn tile) + 1 =
+          (∑ tile, before.counts tile) + 1 := by
+      simpa [Finset.sum_add_distrib, hne, Ne.symm hne] using hsum
+    have hsum_eq :
+        (∑ tile, exchangeCounts before discarded drawn tile) =
+          ∑ tile, before.counts tile := by
+      omega
+    change (∑ tile, exchangeCounts before discarded drawn tile) = 13
+    rw [hsum_eq]
+    exact hcount
+  · intro tile
+    by_cases hdrawn' : tile = drawn
+    · subst tile
+      change exchangeCounts before discarded drawn drawn ≤ 4
+      rw [exchangeCounts_drawn]
+      · omega
+      · exact hne
+    · by_cases hdiscarded' : tile = discarded
+      · subst tile
+        unfold IsPreservingDiscard at hdiscarded
+        change exchangeCounts before discarded drawn discarded ≤ 4
+        have hbefore := hmax discarded
+        rw [exchangeCounts_discarded]
+        · omega
+        · exact hne
+        · omega
+      · change exchangeCounts before discarded drawn tile ≤ 4
+        rw [exchangeCounts_other]
+        · exact hmax tile
+        · exact hdiscarded'
+        · exact hdrawn'
+
 /-- Every pairing exchange is an ordinary exchange step. -/
 lemma PairingExchange.handStep
     (h : PairingExchange before after) : HandStep before after := by
@@ -939,6 +992,53 @@ inductive ReachesPairMaking : Hand → Hand → Nat → Prop
       PairMakingExchange hand next →
       ReachesPairMaking next target distance →
       ReachesPairMaking hand target (distance + 1)
+
+lemma reaches_six_pairs
+    (hand : Hand) (h13 : IsThirteenTileHand hand)
+    (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand ≤ 6) :
+    ∃ next,
+      ReachesPairMaking hand next (6 - pairCount hand) ∧
+        pairCount next = 6 := by
+  have aux : ∀ n : Nat, ∀ hand : Hand,
+      6 - pairCount hand = n →
+      IsThirteenTileHand hand →
+      distinctTileCount hand = 7 →
+      pairCount hand ≤ 6 →
+      ∃ next,
+        ReachesPairMaking hand next n ∧
+          pairCount next = 6 := by
+    intro n
+    induction n using Nat.strong_induction_on with
+    | h n ih =>
+        intro hand hn h13 hdist hpairs'
+        by_cases hsix : pairCount hand = 6
+        · have hnzero : n = 0 := by omega
+          subst n
+          exact ⟨hand, by simpa [hsix] using
+            (ReachesPairMaking.done : ReachesPairMaking hand hand 0), hsix⟩
+        · have hlt : pairCount hand < 6 := by omega
+          obtain ⟨next, hstep⟩ :=
+            exists_pairMakingExchange hand h13 hdist hlt
+          have hnext13 :=
+            PairMakingExchange.isThirteenTileHand h13 hstep
+          have hnextdistinct :
+              distinctTileCount next = 7 := by
+            rw [distinctTileCount_pairMakingExchange hstep]
+            exact hdist
+          have hnextpairs :
+              pairCount next = pairCount hand + 1 :=
+            pairCount_pairMakingExchange hstep
+          have hnnext :
+              6 - pairCount next < n := by
+            omega
+          obtain ⟨final, hrest, hfinal⟩ :=
+            ih (6 - pairCount next) hnnext next rfl hnext13
+              hnextdistinct (by omega)
+          refine ⟨final, ?_, hfinal⟩
+          rw [show n = (6 - pairCount next) + 1 by omega]
+          exact .step hstep hrest
+  exact aux (6 - pairCount hand) hand rfl h13 hdistinct hpairs
 
 lemma ReachesPairMaking.toReachesExchange :
     ReachesPairMaking before after distance →
