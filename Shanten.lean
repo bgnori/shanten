@@ -244,6 +244,25 @@ def sevenPairsTarget (pairs : Finset Tile) (single : Tile) : Hand :=
   { counts := sevenPairsTargetCounts pairs single
     fixedMelds := 0 }
 
+/-- A thirteen-tile seven-pairs tenpai shape. -/
+def IsSevenPairsTenpai (hand : Hand) : Prop :=
+  ∃ pairs : Finset Tile, ∃ single : Tile,
+    pairs.card = 6 ∧
+      single ∉ pairs ∧
+      hand = sevenPairsTarget pairs single
+
+lemma sevenPairsTarget_fixedMelds
+    (pairs : Finset Tile) (single : Tile) :
+    (sevenPairsTarget pairs single).fixedMelds = 0 := by
+  rfl
+
+lemma sevenPairsTarget_counts_le_four
+    (pairs : Finset Tile) (single : Tile) (tile : Tile) :
+    (sevenPairsTarget pairs single).counts tile ≤ 4 := by
+  unfold sevenPairsTarget sevenPairsTargetCounts
+  by_cases hp : tile ∈ pairs <;> by_cases hs : tile = single <;>
+    simp [hp, hs] <;> split <;> omega
+
 /-- The number of tiles still missing from a target count vector. -/
 def countDeficit (current target : TileCounts) : Nat :=
   ∑ tile : Tile, (target tile - current tile)
@@ -636,6 +655,42 @@ inductive ReachesPairing : Hand → Hand → Nat → Prop
 
 lemma ReachesPairing.toReachesExchange :
     ReachesPairing before after distance →
+      ReachesExchange before after distance := by
+  intro h
+  induction h with
+  | done =>
+      exact .done
+  | step hstep hrest ih =>
+      exact .step hstep.handStep ih
+
+/-- Repeated exchanges that introduce previously absent tile kinds. -/
+inductive ReachesDistinctness : Hand → Hand → Nat → Prop
+  | done {hand} : ReachesDistinctness hand hand 0
+  | step {hand next target distance} :
+      DistinctnessExchange hand next →
+      ReachesDistinctness next target distance →
+      ReachesDistinctness hand target (distance + 1)
+
+lemma ReachesDistinctness.toReachesExchange :
+    ReachesDistinctness before after distance →
+      ReachesExchange before after distance := by
+  intro h
+  induction h with
+  | done =>
+      exact .done
+  | step hstep hrest ih =>
+      exact .step hstep.handStep ih
+
+/-- Repeated exchanges that turn singleton kinds into pairs. -/
+inductive ReachesPairMaking : Hand → Hand → Nat → Prop
+  | done {hand} : ReachesPairMaking hand hand 0
+  | step {hand next target distance} :
+      PairMakingExchange hand next →
+      ReachesPairMaking next target distance →
+      ReachesPairMaking hand target (distance + 1)
+
+lemma ReachesPairMaking.toReachesExchange :
+    ReachesPairMaking before after distance →
       ReachesExchange before after distance := by
   intro h
   induction h with
