@@ -222,6 +222,10 @@ def IsOverallShanten (hand : Hand) (value : Int) : Prop :=
 def tileCount (hand : Hand) : Nat :=
   ∑ tile, hand.counts tile
 
+/-- The number of tile kinds occurring at least twice in a hand. -/
+def pairCount (hand : Hand) : Nat :=
+  (Finset.univ.filter fun tile => 2 ≤ hand.counts tile).card
+
 /-- A concealed hand containing exactly thirteen standing tiles. -/
 def IsThirteenTileHand (hand : Hand) : Prop :=
   hand.fixedMelds = 0 ∧ tileCount hand = 13
