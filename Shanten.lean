@@ -297,6 +297,24 @@ lemma exchangeHand_step
   refine ⟨rfl, Or.inr ⟨discarded, drawn, hne, hdiscarded, ?_⟩⟩
   exact exchangeCounts_step hand discarded drawn hne hdiscarded
 
+lemma exchangeCounts_drawn
+    (hand : Hand) (discarded drawn : Tile) (hne : discarded ≠ drawn) :
+    exchangeCounts hand discarded drawn drawn = hand.counts drawn + 1 := by
+  simp [exchangeCounts, hne, Ne.symm hne]
+
+lemma exchangeCounts_discarded
+    (hand : Hand) (discarded drawn : Tile) (hne : discarded ≠ drawn)
+    (hpositive : hand.counts discarded > 0) :
+    exchangeCounts hand discarded drawn discarded =
+      hand.counts discarded - 1 := by
+  simp [exchangeCounts, hne]
+
+lemma exchangeCounts_other
+    (hand : Hand) (discarded drawn tile : Tile)
+    (hdiscarded : tile ≠ discarded) (hdrawn : tile ≠ drawn) :
+    exchangeCounts hand discarded drawn tile = hand.counts tile := by
+  simp [exchangeCounts, hdiscarded, hdrawn]
+
 /-- A chain consisting only of draw-and-discard exchanges. -/
 inductive ReachesExchange : Hand → Hand → Nat → Prop
   | done {hand} : ReachesExchange hand hand 0
@@ -384,6 +402,99 @@ lemma PairMakingExchange.handStep
   exact exchangeHand_step before discarded drawn hne (by
     unfold IsPreservingDiscard at hdiscarded
     omega)
+
+lemma DistinctnessExchange.filter_conditions
+    (h : DistinctnessExchange before after) :
+    ∃ discarded drawn,
+      before.counts drawn = 0 ∧
+        0 < after.counts drawn ∧
+        2 ≤ after.counts discarded ∧
+        discarded ≠ drawn := by
+  rcases h with ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
+  refine ⟨discarded, drawn, ?_, ?_, ?_, hne⟩
+  · exact hdrawn
+  · unfold IntroducesNewKind at hdrawn
+    change 0 < exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · unfold IsPreservingDiscard at hdiscarded
+    change 2 ≤ exchangeCounts before discarded drawn discarded
+    rw [exchangeCounts_discarded]
+    · omega
+    · exact hne
+    · omega
+
+lemma PairMakingExchange.filter_conditions
+    (h : PairMakingExchange before after) :
+    ∃ discarded drawn,
+      before.counts drawn = 1 ∧
+        2 ≤ after.counts drawn ∧
+        2 ≤ after.counts discarded ∧
+        discarded ≠ drawn := by
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  refine ⟨discarded, drawn, hdrawn, ?_, ?_, hne⟩
+  · change 2 ≤ exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · unfold IsPreservingDiscard at hdiscarded
+    change 2 ≤ exchangeCounts before discarded drawn discarded
+    rw [exchangeCounts_discarded]
+    · omega
+    · exact hne
+    · omega
+
+lemma card_filter_eq_add_one_of
+    {α : Type} [Fintype α] [DecidableEq α]
+    (p q : α → Prop) [DecidablePred p] [DecidablePred q]
+    (a : α) (hpa : ¬ p a) (hqa : q a)
+    (hother : ∀ x, x ≠ a → (p x ↔ q x)) :
+    (Finset.univ.filter q).card = (Finset.univ.filter p).card + 1 := by
+  classical
+  have hfilter :
+      Finset.univ.filter q = insert a (Finset.univ.filter p) := by
+    ext x
+    by_cases hxa : x = a
+    · subst x
+      simp [hpa, hqa]
+    · rw [Finset.mem_insert]
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      simp [hxa, hother x hxa]
+  rw [hfilter, Finset.card_insert_of_notMem]
+  · simp [hpa]
+
+lemma distinctTileCount_distinctnessExchange
+    (h : DistinctnessExchange before after) :
+    distinctTileCount after = distinctTileCount before + 1 := by
+  classical
+  rcases h with ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
+  unfold distinctTileCount
+  apply card_filter_eq_add_one_of
+    (p := fun tile => 0 < before.counts tile)
+    (q := fun tile => 0 < (exchangeHand before discarded drawn).counts tile)
+    drawn
+  · unfold IntroducesNewKind at hdrawn
+    simp [hdrawn]
+  · change 0 < exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · intro tile htile
+    by_cases hdiscard : tile = discarded
+    · subst tile
+      unfold IsPreservingDiscard at hdiscarded
+      change (0 < before.counts discarded ↔
+        0 < exchangeCounts before discarded drawn discarded)
+      rw [exchangeCounts_discarded]
+      · omega
+      · exact hne
+      · omega
+    · change (0 < before.counts tile ↔
+      0 < exchangeCounts before discarded drawn tile)
+      rw [exchangeCounts_other]
+      · exact hdiscard
+      · exact htile
 
 lemma deficit_after_drawing
     (target : TileCounts) (hand : Hand) (discarded drawn : Tile)
