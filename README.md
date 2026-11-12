@@ -5,6 +5,9 @@ This module contains types, an interface, and error categories only.
 There is no calculator, adapter, registry, dynamic loader, or validation algorithm.
 It depends only on the Go standard library, not on the parent aka37 module.
 
+The Lean4-first verification and Go implementation plan is documented in
+[docs/SHANTEN_LEAN4_PLAN.md](docs/SHANTEN_LEAN4_PLAN.md).
+
 ## Input
 
 `Calculator.Calculate(Input) (Result, error)` accepts standing tiles and fixed
