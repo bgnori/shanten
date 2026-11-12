@@ -330,6 +330,36 @@ def TargetExchange (target : TileCounts) (before after : Hand) : Prop :=
       discarded ≠ drawn ∧
       after = exchangeHand before discarded drawn
 
+/- A discard that leaves at least one pair of the same tile kind. -/
+def IsPreservingDiscard (hand : Hand) (tile : Tile) : Prop :=
+  3 ≤ hand.counts tile
+
+/- A draw of a tile kind that is not present in the hand. -/
+def IntroducesNewKind (hand : Hand) (tile : Tile) : Prop :=
+  hand.counts tile = 0
+
+/--
+An exchange that introduces a new tile kind while removing an extra copy from
+an existing kind.  It preserves every existing pair.
+-/
+def DistinctnessExchange (before after : Hand) : Prop :=
+  ∃ discarded drawn,
+    IsPreservingDiscard before discarded ∧
+      IntroducesNewKind before drawn ∧
+      discarded ≠ drawn ∧
+      after = exchangeHand before discarded drawn
+
+/--
+An exchange that turns a singleton into a pair while discarding an extra copy
+from another kind.
+-/
+def PairMakingExchange (before after : Hand) : Prop :=
+  ∃ discarded drawn,
+    before.counts drawn = 1 ∧
+      IsPreservingDiscard before discarded ∧
+      discarded ≠ drawn ∧
+      after = exchangeHand before discarded drawn
+
 /-- Every pairing exchange is an ordinary exchange step. -/
 lemma PairingExchange.handStep
     (h : PairingExchange before after) : HandStep before after := by
@@ -340,6 +370,20 @@ lemma TargetExchange.handStep
     (h : TargetExchange target before after) : HandStep before after := by
   rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
   exact exchangeHand_step before discarded drawn hne (by omega)
+
+lemma DistinctnessExchange.handStep
+    (h : DistinctnessExchange before after) : HandStep before after := by
+  rcases h with ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
+  exact exchangeHand_step before discarded drawn hne (by
+    unfold IsPreservingDiscard at hdiscarded
+    omega)
+
+lemma PairMakingExchange.handStep
+    (h : PairMakingExchange before after) : HandStep before after := by
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  exact exchangeHand_step before discarded drawn hne (by
+    unfold IsPreservingDiscard at hdiscarded
+    omega)
 
 lemma deficit_after_drawing
     (target : TileCounts) (hand : Hand) (discarded drawn : Tile)
