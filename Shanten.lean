@@ -614,6 +614,61 @@ lemma ProtectedPairMakingExchange.handStep
   · omega
   · omega
 
+lemma ProtectedPairMakingExchange.isThirteenTileHand
+    (h13 : IsThirteenTileHand before)
+    (h : ProtectedPairMakingExchange protectedTiles before after) :
+    IsThirteenTileHand after := by
+  rcases h with
+    ⟨discarded, drawn, hprotected, hdrawn, hdiscarded, hne, rfl⟩
+  rcases h13 with ⟨hfixed, hcount, hmax⟩
+  have hpositive : before.counts discarded > 0 := by
+    rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+    · omega
+    · omega
+  refine ⟨?_, ?_, ?_⟩
+  · change before.fixedMelds = 0
+    exact hfixed
+  · have hstep :=
+      exchangeCounts_step before discarded drawn hne hpositive
+    have hfun :
+        (fun tile =>
+          exchangeCounts before discarded drawn tile +
+            (if tile = discarded then 1 else 0)) =
+        (fun tile =>
+          before.counts tile + (if tile = drawn then 1 else 0)) :=
+      funext hstep
+    have hsum := congrArg (fun f : TileCounts => ∑ tile, f tile) hfun
+    have hsum' :
+        (∑ tile, exchangeCounts before discarded drawn tile) + 1 =
+          (∑ tile, before.counts tile) + 1 := by
+      simpa [Finset.sum_add_distrib, hne, Ne.symm hne] using hsum
+    have hsum_eq :
+        (∑ tile, exchangeCounts before discarded drawn tile) =
+          ∑ tile, before.counts tile := by
+      omega
+    change (∑ tile, exchangeCounts before discarded drawn tile) = 13
+    rw [hsum_eq]
+    exact hcount
+  · intro tile
+    by_cases hdrawn' : tile = drawn
+    · subst tile
+      change exchangeCounts before discarded drawn drawn ≤ 4
+      rw [exchangeCounts_drawn]
+      · omega
+      · exact hne
+    · by_cases hdiscarded' : tile = discarded
+      · subst tile
+        change exchangeCounts before discarded drawn discarded ≤ 4
+        rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+        · have hbefore := hmax discarded
+          rw [exchangeCounts_discarded before discarded drawn hne hpositive]
+          omega
+        · rw [exchangeCounts_discarded before discarded drawn hne hpositive]
+          omega
+      · change exchangeCounts before discarded drawn tile ≤ 4
+        rw [exchangeCounts_other before discarded drawn tile hdiscarded' hdrawn']
+        exact hmax tile
+
 /-- Every pairing exchange is an ordinary exchange step. -/
 lemma PairingExchange.handStep
     (h : PairingExchange before after) : HandStep before after := by
