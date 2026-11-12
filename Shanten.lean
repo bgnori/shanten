@@ -212,4 +212,27 @@ that reason about a particular finite value rather than the `Option` API.
 def IsOverallShanten (hand : Hand) (value : Int) : Prop :=
   OverallShanten hand = some value
 
+/-- The number of standing tiles in a hand. -/
+def tileCount (hand : Hand) : Nat :=
+  ∑ tile, hand.counts tile
+
+/-- A concealed hand containing exactly thirteen standing tiles. -/
+def IsThirteenTileHand (hand : Hand) : Prop :=
+  hand.fixedMelds = 0 ∧ tileCount hand = 13
+
+/--
+The maximum shanten number of a thirteen-tile hand is at most five.
+
+This is the combinatorial bound for the three hand shapes specified above.
+Its proof is intentionally left as an interface theorem: the definitions in
+this file specify completion and shanten, but do not implement the finite
+enumeration needed to establish the bound.
+-/
+theorem maxShanten13
+    (h13 : IsThirteenTileHand hand)
+    (value : Int)
+    (hvalue : IsOverallShanten hand value) :
+    value ≤ 5 := by
+  sorry
+
 end Shanten
