@@ -304,10 +304,17 @@ def sevenPairsTarget (pairs : Finset Tile) (single : Tile) : Hand :=
 
 /-- A thirteen-tile seven-pairs tenpai shape. -/
 def IsSevenPairsTenpai (hand : Hand) : Prop :=
-  ∃ pairs : Finset Tile, ∃ single : Tile,
-    pairs.card = 6 ∧
-      single ∉ pairs ∧
-      hand = sevenPairsTarget pairs single
+  hand.fixedMelds = 0 ∧
+    tileCount hand = 13 ∧
+    distinctTileCount hand = 7 ∧
+    pairCount hand = 6
+
+lemma isSevenPairsTenpai_of_terminal
+    (hand : Hand) (h13 : IsThirteenTileHand hand)
+    (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand = 6) :
+    IsSevenPairsTenpai hand := by
+  exact ⟨h13.1, h13.2.1, hdistinct, hpairs⟩
 
 lemma sevenPairsTarget_fixedMelds
     (pairs : Finset Tile) (single : Tile) :
@@ -719,6 +726,32 @@ lemma exists_nonPair_kind
       omega
     · intro hpair
       have hno' := hno tile
+      omega
+  have hcard :
+      distinctTileCount hand = pairCount hand := by
+    unfold distinctTileCount pairCount
+    exact card_filter_eq_of_iff
+      (fun tile => 0 < hand.counts tile)
+      (fun tile => 2 ≤ hand.counts tile)
+      hiff
+  omega
+
+lemma exists_singleton_kind_of_seven_kinds_six_pairs
+    (hand : Hand) (hdistinct : distinctTileCount hand = 7)
+    (hpairs : pairCount hand = 6) :
+    ∃ tile, hand.counts tile = 1 := by
+  by_contra hnon
+  have hno : ∀ tile, hand.counts tile ≠ 1 := by
+    intro tile htile
+    exact hnon ⟨tile, htile⟩
+  have hiff : ∀ tile,
+      (0 < hand.counts tile) ↔ 2 ≤ hand.counts tile := by
+    intro tile
+    constructor
+    · intro hpositive
+      have hno' := hno tile
+      omega
+    · intro hpair
       omega
   have hcard :
       distinctTileCount hand = pairCount hand := by
