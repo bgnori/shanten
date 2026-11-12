@@ -530,6 +530,27 @@ def PairMakingExchange (before after : Hand) : Prop :=
       discarded ≠ drawn ∧
       after = exchangeHand before discarded drawn
 
+/-- A discard that either preserves a pair or removes a protected-outside
+singleton kind. -/
+def IsProtectedPairMakingDiscard
+    (hand : Hand) (protectedTiles : Finset Tile) (tile : Tile) : Prop :=
+  3 ≤ hand.counts tile ∨
+    (hand.counts tile = 1 ∧ tile ∉ protectedTiles)
+
+/--
+An exchange that makes a pair in one of the protected tile kinds.  The
+discarded kind is either a surplus kind or a singleton outside the protected
+set.
+-/
+def ProtectedPairMakingExchange
+    (protectedTiles : Finset Tile) (before after : Hand) : Prop :=
+  ∃ discarded drawn,
+    drawn ∈ protectedTiles ∧
+      before.counts drawn = 1 ∧
+      IsProtectedPairMakingDiscard before protectedTiles discarded ∧
+      discarded ≠ drawn ∧
+      after = exchangeHand before discarded drawn
+
 lemma PairMakingExchange.isThirteenTileHand
     (h13 : IsThirteenTileHand before)
     (h : PairMakingExchange before after) :
@@ -582,6 +603,16 @@ lemma PairMakingExchange.isThirteenTileHand
         · exact hmax tile
         · exact hdiscarded'
         · exact hdrawn'
+
+/-- Every protected pair-making exchange is an ordinary hand step. -/
+lemma ProtectedPairMakingExchange.handStep
+        (h : ProtectedPairMakingExchange protectedTiles before after) :
+        HandStep before after := by
+  rcases h with ⟨discarded, drawn, hprotected, hdrawn, hdiscarded, hne, rfl⟩
+  refine exchangeHand_step before discarded drawn hne ?_
+  rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+  · omega
+  · omega
 
 /-- Every pairing exchange is an ordinary exchange step. -/
 lemma PairingExchange.handStep
