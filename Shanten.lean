@@ -1237,6 +1237,123 @@ lemma exists_protectedTiles
     simp only [pairs, Finset.mem_filter, Finset.mem_univ, true_and]
     exact htile
 
+lemma protectedPairingInvariant_after_protectedPairMakingExchange
+    (hprotected : ProtectedPairingInvariant protectedTiles before)
+    (h : ProtectedPairMakingExchange protectedTiles before after) :
+    ProtectedPairingInvariant protectedTiles after := by
+  constructor
+  · exact protectedTiles_positive_after_protectedPairMakingExchange
+      hprotected.1 h
+  · intro tile hpair
+    rcases h with ⟨discarded, drawn, hdrawn, hdrawnCount,
+      hdiscarded, hne, rfl⟩
+    by_cases htileDrawn : tile = drawn
+    · subst tile
+      exact hdrawn
+    · by_cases htileDiscarded : tile = discarded
+      · subst tile
+        rcases hdiscarded with hsurplus | ⟨hsingleton, houtside⟩
+        · exact hprotected.2 discarded (by omega)
+        · have hpair' : 2 ≤ exchangeCounts before discarded drawn discarded := hpair
+          rw [exchangeCounts_discarded] at hpair'
+          · omega
+          · exact hne
+          · omega
+      · have hunchanged :
+          exchangeCounts before discarded drawn tile = before.counts tile := by
+          exact exchangeCounts_other before discarded drawn tile
+            htileDiscarded htileDrawn
+        have hbefore : 2 ≤ before.counts tile := by
+          rw [← hunchanged]
+          exact hpair
+        exact hprotected.2 tile hbefore
+
+lemma exists_protectedPairMakingExchange
+    (protectedTiles : Finset Tile) (hand : Hand)
+    (h13 : IsThirteenTileHand hand)
+    (hcard : protectedTiles.card = 7)
+    (hprotected : ProtectedPairingInvariant protectedTiles hand)
+    (hpairs : pairCount hand < 6) :
+    ∃ next,
+      ProtectedPairMakingExchange protectedTiles hand next ∧
+        ProtectedPairingInvariant protectedTiles next := by
+  classical
+  have hdrawn : ∃ drawn, drawn ∈ protectedTiles ∧ hand.counts drawn = 1 := by
+    by_contra hnone
+    push Not at hnone
+    have hpairSubset : protectedTiles ⊆
+        Finset.univ.filter (fun tile => 2 ≤ hand.counts tile) := by
+      intro tile htile
+      have hpositive := hprotected.1 tile htile
+      have hnot := hnone tile htile
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      omega
+    have hcardle :
+        protectedTiles.card ≤
+          (Finset.univ.filter (fun tile => 2 ≤ hand.counts tile)).card :=
+      Finset.card_le_card hpairSubset
+    have : 7 ≤ pairCount hand := by
+      rw [hcard] at hcardle
+      exact hcardle
+    omega
+  obtain ⟨drawn, hdrawnProtected, hdrawnCount⟩ := hdrawn
+  by_cases hsurplus : ∃ discarded, 3 ≤ hand.counts discarded
+  · obtain ⟨discarded, hdiscarded⟩ := hsurplus
+    have hne : discarded ≠ drawn := by
+      intro heq
+      subst heq
+      omega
+    let next := exchangeHand hand discarded drawn
+    have hstep : ProtectedPairMakingExchange protectedTiles hand next := by
+      exact ⟨discarded, drawn, hdrawnProtected, hdrawnCount,
+        Or.inl hdiscarded, hne, rfl⟩
+    exact ⟨next, hstep,
+      protectedPairingInvariant_after_protectedPairMakingExchange
+        hprotected hstep⟩
+  · push Not at hsurplus
+    have hsmall : ∀ tile, hand.counts tile ≤ 2 := by
+      intro tile
+      have hnot := hsurplus tile
+      omega
+    have hbound := tileCount_le_distinct_add_pairCount hand hsmall
+    have hdistinct : 8 ≤ distinctTileCount hand := by
+      have hcount := h13.2.1
+      omega
+    let present : Finset Tile :=
+      Finset.univ.filter (fun tile => 0 < hand.counts tile)
+    have hpresentCard : present.card = distinctTileCount hand := by
+      rfl
+    have hexternal : ∃ discarded, discarded ∈ present ∧
+        discarded ∉ protectedTiles := by
+      by_contra hnone
+      push Not at hnone
+      have hsubset : present ⊆ protectedTiles := by
+        intro tile htile
+        exact hnone tile htile
+      have hcardle := Finset.card_le_card hsubset
+      rw [hpresentCard, hcard] at hcardle
+      omega
+    obtain ⟨discarded, hdiscardedPresent, hdiscardedOutside⟩ := hexternal
+    have hdiscardedPositive :
+        0 < hand.counts discarded := by
+      simpa [present] using hdiscardedPresent
+    have hdiscardedNotPair : ¬ 2 ≤ hand.counts discarded := by
+      intro hpair
+      exact hdiscardedOutside (hprotected.2 discarded hpair)
+    have hdiscardedSingleton : hand.counts discarded = 1 := by
+      omega
+    have hne : discarded ≠ drawn := by
+      intro heq
+      subst heq
+      exact hdiscardedOutside hdrawnProtected
+    let next := exchangeHand hand discarded drawn
+    have hstep : ProtectedPairMakingExchange protectedTiles hand next := by
+      exact ⟨discarded, drawn, hdrawnProtected, hdrawnCount,
+        Or.inr ⟨hdiscardedSingleton, hdiscardedOutside⟩, hne, rfl⟩
+    exact ⟨next, hstep,
+      protectedPairingInvariant_after_protectedPairMakingExchange
+        hprotected hstep⟩
+
 /-- Repeated exchanges that make pairs in a fixed protected set. -/
 inductive ReachesProtectedPairMaking
     (protectedTiles : Finset Tile) : Hand → Hand → Nat → Prop
@@ -1309,6 +1426,38 @@ lemma reaches_six_pairs_protected
           rw [show n = (6 - pairCount next) + 1 by omega]
           exact .step hstep hrest
   exact aux (6 - pairCount hand) hand rfl h13 hprotected hpairs
+
+lemma reaches_six_pairs_protected_of_card
+    (protectedTiles : Finset Tile) (hand : Hand)
+    (h13 : IsThirteenTileHand hand)
+    (hcard : protectedTiles.card = 7)
+    (hprotected : ProtectedPairingInvariant protectedTiles hand)
+    (hpairs : pairCount hand ≤ 6) :
+    ∃ next,
+      ReachesProtectedPairMaking protectedTiles hand next
+        (6 - pairCount hand) ∧
+        pairCount next = 6 := by
+  apply reaches_six_pairs_protected protectedTiles hand h13 hprotected hpairs
+  intro current hcurrent hcurrentProtected hcurrentPairs
+  have hpresentSubset :
+      protectedTiles ⊆
+        Finset.univ.filter (fun tile => 0 < current.counts tile) := by
+    intro tile htile
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    exact hcurrentProtected.1 tile htile
+  have hcardle :
+      protectedTiles.card ≤
+        (Finset.univ.filter (fun tile => 0 < current.counts tile)).card :=
+    Finset.card_le_card hpresentSubset
+  have hdistinct : 7 ≤ distinctTileCount current := by
+    have hcardle' :
+        7 ≤ (Finset.univ.filter (fun tile => 0 < current.counts tile)).card := by
+      omega
+    exact hcardle'
+  obtain ⟨next, hstep, hnextProtected⟩ :=
+    exists_protectedPairMakingExchange protectedTiles current hcurrent
+      hcard hcurrentProtected hcurrentPairs
+  exact ⟨next, hstep, hnextProtected⟩
 
 lemma reaches_six_pairs
     (hand : Hand) (h13 : IsThirteenTileHand hand)
