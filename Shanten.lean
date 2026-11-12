@@ -1004,6 +1004,68 @@ lemma pairCount_pairMakingExchange
       · exact hdiscarded'
       · exact htile
 
+lemma pairCount_protectedPairMakingExchange
+    (h : ProtectedPairMakingExchange protectedTiles before after) :
+    pairCount after = pairCount before + 1 := by
+  classical
+  rcases h with ⟨discarded, drawn, hprotected, hdrawn, hdiscarded, hne, rfl⟩
+  unfold pairCount
+  apply card_filter_eq_add_one_of
+    (p := fun tile => 2 ≤ before.counts tile)
+    (q := fun tile => 2 ≤ (exchangeHand before discarded drawn).counts tile)
+    drawn
+  · omega
+  · change 2 ≤ exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · intro tile htile
+    by_cases hdiscarded' : tile = discarded
+    · subst tile
+      change (2 ≤ before.counts discarded ↔
+      2 ≤ exchangeCounts before discarded drawn discarded)
+      rw [exchangeCounts_discarded]
+      · rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+        · constructor <;> omega
+        · constructor <;> omega
+      · exact hne
+      · rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+        · omega
+        · omega
+    · change (2 ≤ before.counts tile ↔
+      2 ≤ exchangeCounts before discarded drawn tile)
+      rw [exchangeCounts_other]
+      · exact hdiscarded'
+      · exact htile
+
+lemma protectedTiles_positive_after_protectedPairMakingExchange
+    (hpositive : ∀ tile, tile ∈ protectedTiles → 0 < before.counts tile)
+    (h : ProtectedPairMakingExchange protectedTiles before after) :
+    ∀ tile, tile ∈ protectedTiles → 0 < after.counts tile := by
+  intro tile htile
+  rcases h with ⟨discarded, drawn, hdrawn, hdrawnCount,
+    hdiscarded, hne, rfl⟩
+  by_cases htileDrawn : tile = drawn
+  · subst tile
+    change 0 < exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  by_cases htileDiscarded : tile = discarded
+  · subst tile
+    change 0 < exchangeCounts before discarded drawn discarded
+    rw [exchangeCounts_discarded]
+    · rcases hdiscarded with hsurplus | ⟨hsingleton, _⟩
+      · omega
+      · exact False.elim (‹discarded ∉ protectedTiles› htile)
+    · exact hne
+    · exact hpositive discarded (by assumption)
+  · change 0 < exchangeCounts before discarded drawn tile
+    rw [exchangeCounts_other]
+    · exact hpositive tile htile
+    · exact htileDiscarded
+    · exact htileDrawn
+
 lemma deficit_after_drawing
     (target : TileCounts) (hand : Hand) (discarded drawn : Tile)
     (hne : discarded ≠ drawn) (hdeficit : hand.counts drawn < target drawn) :
@@ -1111,6 +1173,85 @@ inductive ReachesPairMaking : Hand → Hand → Nat → Prop
       PairMakingExchange hand next →
       ReachesPairMaking next target distance →
       ReachesPairMaking hand target (distance + 1)
+
+/-- Invariants used while a fixed set of seven kinds is used for pairing. -/
+def ProtectedPairingInvariant
+    (protectedTiles : Finset Tile) (hand : Hand) : Prop :=
+  (∀ tile, tile ∈ protectedTiles → 0 < hand.counts tile) ∧
+    (∀ tile, 2 ≤ hand.counts tile → tile ∈ protectedTiles)
+
+/-- Repeated exchanges that make pairs in a fixed protected set. -/
+inductive ReachesProtectedPairMaking
+    (protectedTiles : Finset Tile) : Hand → Hand → Nat → Prop
+  | done {hand} : ReachesProtectedPairMaking protectedTiles hand hand 0
+  | step {hand next target distance} :
+      ProtectedPairMakingExchange protectedTiles hand next →
+      ReachesProtectedPairMaking protectedTiles next target distance →
+      ReachesProtectedPairMaking protectedTiles hand target (distance + 1)
+
+lemma ReachesProtectedPairMaking.toReachesExchange :
+    ReachesProtectedPairMaking protectedTiles before after distance →
+      ReachesExchange before after distance := by
+  intro h
+  induction h with
+  | done =>
+      exact .done
+  | step hstep hrest ih =>
+      exact .step hstep.handStep ih
+
+lemma reaches_six_pairs_protected
+    (protectedTiles : Finset Tile) (hand : Hand)
+    (h13 : IsThirteenTileHand hand)
+    (hprotected : ProtectedPairingInvariant protectedTiles hand)
+    (hpairs : pairCount hand ≤ 6)
+    (hchoose :
+      ∀ current,
+        IsThirteenTileHand current →
+        ProtectedPairingInvariant protectedTiles current →
+        pairCount current < 6 →
+        ∃ next,
+          ProtectedPairMakingExchange protectedTiles current next ∧
+            ProtectedPairingInvariant protectedTiles next) :
+    ∃ next,
+      ReachesProtectedPairMaking protectedTiles hand next
+        (6 - pairCount hand) ∧
+        pairCount next = 6 := by
+  have aux : ∀ n : Nat, ∀ current : Hand,
+      6 - pairCount current = n →
+      IsThirteenTileHand current →
+      ProtectedPairingInvariant protectedTiles current →
+      pairCount current ≤ 6 →
+      ∃ next,
+        ReachesProtectedPairMaking protectedTiles current next n ∧
+          pairCount next = 6 := by
+    intro n
+    induction n using Nat.strong_induction_on with
+    | h n ih =>
+        intro current hn hcurrent hcurrentProtected hpairs'
+        by_cases hsix : pairCount current = 6
+        · have hnzero : n = 0 := by omega
+          subst n
+          exact ⟨current, by simpa [hsix] using
+            (ReachesProtectedPairMaking.done :
+              ReachesProtectedPairMaking protectedTiles current current 0), hsix⟩
+        · have hlt : pairCount current < 6 := by omega
+          obtain ⟨next, hstep, hnextProtected⟩ :=
+            hchoose current hcurrent hcurrentProtected hlt
+          have hnext13 :=
+            ProtectedPairMakingExchange.isThirteenTileHand hcurrent hstep
+          have hnextpairs :
+              pairCount next = pairCount current + 1 :=
+            pairCount_protectedPairMakingExchange hstep
+          have hnnext :
+              6 - pairCount next < n := by
+            omega
+          obtain ⟨final, hrest, hfinal⟩ :=
+            ih (6 - pairCount next) hnnext next rfl hnext13
+              hnextProtected (by omega)
+          refine ⟨final, ?_, hfinal⟩
+          rw [show n = (6 - pairCount next) + 1 by omega]
+          exact .step hstep hrest
+  exact aux (6 - pairCount hand) hand rfl h13 hprotected hpairs
 
 lemma reaches_six_pairs
     (hand : Hand) (h13 : IsThirteenTileHand hand)
