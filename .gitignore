@@ -1,0 +1,12 @@
+# Lean / Lake build artifacts
+.lake/
+*.olean
+*.ilean
+*.olean.lock
+*.trace
+
+# Go build and test artifacts
+/bin/
+*.exe
+*.test
+*.out

@@ -98,3 +98,26 @@ go vet ./...
 
 These compile/check the contract only; numerical conformance tests belong to a
 future calculator or adapter implementation.
+
+## Development container
+
+Two Dev Container configurations are available; both are limited to 2 CPUs:
+
+- `dev`: Go, Lean 4, and mathlib. Use this configuration for local development
+  in this repository.
+- `user`: Go only, without the Lean toolchain or mathlib, for a lighter
+  environment.
+
+In VS Code, choose the desired configuration when opening the repository in a
+Dev Container. Lean 4 and mathlib in `dev` are both pinned to `v4.35.0`;
+mathlib's prebuilt cache is fetched when the container is created. The `dev`
+configuration mounts the host's `~/.cache/mathlib` at
+`/home/vscode/.cache/mathlib`, so the downloaded mathlib cache is reused when
+the container is rebuilt or recreated. Set `MATHLIB_CACHE_DIR` in
+`devcontainer.json` if you use a different host cache location.
+
+Build the Lean project in `dev` with:
+
+```sh
+lake build Shanten
+```
