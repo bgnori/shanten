@@ -464,6 +464,18 @@ lemma card_filter_eq_add_one_of
   rw [hfilter, Finset.card_insert_of_notMem]
   · simp [hpa]
 
+lemma card_filter_eq_of_iff
+    {α : Type} [Fintype α] [DecidableEq α]
+    (p q : α → Prop) [DecidablePred p] [DecidablePred q]
+    (h : ∀ x, p x ↔ q x) :
+    (Finset.univ.filter p).card = (Finset.univ.filter q).card := by
+  have hfilter :
+      Finset.univ.filter p = Finset.univ.filter q := by
+    ext x
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    exact h x
+  exact congrArg Finset.card hfilter
+
 lemma distinctTileCount_distinctnessExchange
     (h : DistinctnessExchange before after) :
     distinctTileCount after = distinctTileCount before + 1 := by
@@ -494,6 +506,100 @@ lemma distinctTileCount_distinctnessExchange
       0 < exchangeCounts before discarded drawn tile)
       rw [exchangeCounts_other]
       · exact hdiscard
+      · exact htile
+
+lemma pairCount_distinctnessExchange
+    (h : DistinctnessExchange before after) :
+    pairCount after = pairCount before := by
+  classical
+  rcases h with ⟨discarded, drawn, hdiscarded, hdrawn, hne, rfl⟩
+  unfold pairCount
+  apply Eq.symm
+  apply card_filter_eq_of_iff
+  intro tile
+  by_cases hdrawn' : tile = drawn
+  · subst tile
+    unfold IntroducesNewKind at hdrawn
+    change (2 ≤ before.counts drawn ↔
+      2 ≤ exchangeCounts before discarded drawn drawn)
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · by_cases hdiscarded' : tile = discarded
+    · subst tile
+      unfold IsPreservingDiscard at hdiscarded
+      change (2 ≤ before.counts discarded ↔
+        2 ≤ exchangeCounts before discarded drawn discarded)
+      rw [exchangeCounts_discarded]
+      · omega
+      · exact hne
+      · omega
+    · change (2 ≤ before.counts tile ↔
+      2 ≤ exchangeCounts before discarded drawn tile)
+      rw [exchangeCounts_other]
+      · exact hdiscarded'
+      · exact hdrawn'
+
+lemma distinctTileCount_pairMakingExchange
+    (h : PairMakingExchange before after) :
+    distinctTileCount after = distinctTileCount before := by
+  classical
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  unfold distinctTileCount
+  apply Eq.symm
+  apply card_filter_eq_of_iff
+  intro tile
+  by_cases hdrawn' : tile = drawn
+  · subst tile
+    change (0 < before.counts drawn ↔
+      0 < exchangeCounts before discarded drawn drawn)
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · by_cases hdiscarded' : tile = discarded
+    · subst tile
+      unfold IsPreservingDiscard at hdiscarded
+      change (0 < before.counts discarded ↔
+        0 < exchangeCounts before discarded drawn discarded)
+      rw [exchangeCounts_discarded]
+      · omega
+      · exact hne
+      · omega
+    · change (0 < before.counts tile ↔
+      0 < exchangeCounts before discarded drawn tile)
+      rw [exchangeCounts_other]
+      · exact hdiscarded'
+      · exact hdrawn'
+
+lemma pairCount_pairMakingExchange
+    (h : PairMakingExchange before after) :
+    pairCount after = pairCount before + 1 := by
+  classical
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  unfold pairCount
+  apply card_filter_eq_add_one_of
+    (p := fun tile => 2 ≤ before.counts tile)
+    (q := fun tile => 2 ≤ (exchangeHand before discarded drawn).counts tile)
+    drawn
+  · omega
+  · change 2 ≤ exchangeCounts before discarded drawn drawn
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · intro tile htile
+    by_cases hdiscarded' : tile = discarded
+    · subst tile
+      unfold IsPreservingDiscard at hdiscarded
+      change (2 ≤ before.counts discarded ↔
+        2 ≤ exchangeCounts before discarded drawn discarded)
+      rw [exchangeCounts_discarded]
+      · omega
+      · exact hne
+      · omega
+    · change (2 ≤ before.counts tile ↔
+      2 ≤ exchangeCounts before discarded drawn tile)
+      rw [exchangeCounts_other]
+      · exact hdiscarded'
       · exact htile
 
 lemma deficit_after_drawing
