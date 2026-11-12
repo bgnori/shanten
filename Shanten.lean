@@ -236,6 +236,175 @@ def IsThirteenTileHand (hand : Hand) : Prop :=
    tileCount hand = 13 ∧
    ∀ tile, hand.counts tile ≤ 4
 
+/- A target thirteen-tile shape for seven-pairs tenpai. -/
+def sevenPairsTargetCounts (pairs : Finset Tile) (single : Tile) : TileCounts :=
+  fun tile => if tile ∈ pairs then 2 else if tile = single then 1 else 0
+
+def sevenPairsTarget (pairs : Finset Tile) (single : Tile) : Hand :=
+  { counts := sevenPairsTargetCounts pairs single
+    fixedMelds := 0 }
+
+/-- The number of tiles still missing from a target count vector. -/
+def countDeficit (current target : TileCounts) : Nat :=
+  ∑ tile : Tile, (target tile - current tile)
+
+/--
+For count vectors with the same total, `countDeficit` is exactly the number
+of exchanges needed when each exchange replaces one tile kind by another.
+-/
+def exchangeDistance (hand : Hand) (target : TileCounts) : Nat :=
+  countDeficit hand.counts target
+
+/--
+A tile kind that is not yet a pair.  A zero-count tile is also a candidate:
+the first exchange creates its singleton, and a later exchange can complete
+the pair.  This is needed for hands concentrated in only a few tile kinds.
+-/
+def IsPairingCandidate (hand : Hand) (tile : Tile) : Prop :=
+  hand.counts tile < 2
+
+/-- The count vector obtained by drawing `drawn` and discarding `discarded`. -/
+def exchangeCounts (hand : Hand) (discarded drawn : Tile) : TileCounts :=
+  fun tile =>
+    hand.counts tile + (if tile = drawn then 1 else 0) -
+      (if tile = discarded then 1 else 0)
+
+def exchangeHand (hand : Hand) (discarded drawn : Tile) : Hand :=
+  { counts := exchangeCounts hand discarded drawn
+    fixedMelds := hand.fixedMelds }
+
+lemma exchangeCounts_step
+    (hand : Hand) (discarded drawn : Tile)
+    (hne : discarded ≠ drawn) (hdiscarded : hand.counts discarded > 0) :
+    ∀ tile,
+      exchangeCounts hand discarded drawn tile +
+          (if tile = discarded then 1 else 0) =
+        hand.counts tile + (if tile = drawn then 1 else 0) := by
+  intro tile
+  by_cases hdiscard : tile = discarded
+  · subst tile
+    simp [exchangeCounts, hne, Ne.symm hne]
+    omega
+  · by_cases hdrawn : tile = drawn
+    · subst tile
+      simp [exchangeCounts, hdiscard]
+    · simp [exchangeCounts, hdiscard, hdrawn]
+
+lemma exchangeHand_step
+    (hand : Hand) (discarded drawn : Tile)
+    (hne : discarded ≠ drawn) (hdiscarded : hand.counts discarded > 0) :
+    HandStep hand (exchangeHand hand discarded drawn) := by
+  refine ⟨rfl, Or.inr ⟨discarded, drawn, hne, hdiscarded, ?_⟩⟩
+  exact exchangeCounts_step hand discarded drawn hne hdiscarded
+
+/-- A chain consisting only of draw-and-discard exchanges. -/
+inductive ReachesExchange : Hand → Hand → Nat → Prop
+  | done {hand} : ReachesExchange hand hand 0
+  | step {hand next target distance} :
+      HandStep hand next →
+      ReachesExchange next target distance →
+      ReachesExchange hand target (distance + 1)
+
+lemma pairingCandidate_not_pair
+    (hand : Hand) (tile : Tile) (hcandidate : IsPairingCandidate hand tile) :
+    ¬ 2 ≤ hand.counts tile := by
+  unfold IsPairingCandidate at hcandidate
+  omega
+
+/-- One exchange that advances a tile kind toward its target pair count. -/
+def PairingExchange (before after : Hand) : Prop :=
+  ∃ discarded drawn,
+    IsPairingCandidate before drawn ∧
+      discarded ≠ drawn ∧
+      before.counts discarded > 0 ∧
+      after = exchangeHand before discarded drawn
+
+/--
+An exchange directed at a fixed target count vector.  The drawn kind is
+deficient at the target, while the discarded kind is strictly in surplus.
+-/
+def TargetExchange (target : TileCounts) (before after : Hand) : Prop :=
+  ∃ discarded drawn,
+    target drawn > before.counts drawn ∧
+      before.counts discarded > target discarded ∧
+      discarded ≠ drawn ∧
+      after = exchangeHand before discarded drawn
+
+/-- Every pairing exchange is an ordinary exchange step. -/
+lemma PairingExchange.handStep
+    (h : PairingExchange before after) : HandStep before after := by
+  rcases h with ⟨discarded, drawn, hcandidate, hne, hdiscarded, rfl⟩
+  exact exchangeHand_step before discarded drawn hne hdiscarded
+
+lemma TargetExchange.handStep
+    (h : TargetExchange target before after) : HandStep before after := by
+  rcases h with ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+  exact exchangeHand_step before discarded drawn hne (by omega)
+
+lemma deficit_after_drawing
+    (target : TileCounts) (hand : Hand) (discarded drawn : Tile)
+    (hne : discarded ≠ drawn) (hdeficit : hand.counts drawn < target drawn) :
+    target drawn - exchangeCounts hand discarded drawn drawn =
+      target drawn - hand.counts drawn - 1 := by
+  simp [exchangeCounts, hne, Ne.symm hne]
+  omega
+
+lemma deficit_after_discarding
+    (target : TileCounts) (hand : Hand) (discarded drawn : Tile)
+    (hne : discarded ≠ drawn)
+    (hsurplus : target discarded < hand.counts discarded) :
+    target discarded - exchangeCounts hand discarded drawn discarded =
+      target discarded - hand.counts discarded := by
+  simp [exchangeCounts, hne]
+  omega
+
+lemma deficit_unchanged
+    (target : TileCounts) (hand : Hand) (discarded drawn tile : Tile)
+    (hdiscarded : tile ≠ discarded) (hdrawn : tile ≠ drawn) :
+    target tile - exchangeCounts hand discarded drawn tile =
+      target tile - hand.counts tile := by
+  simp [exchangeCounts, hdiscarded, hdrawn]
+
+/-- Repeated pairing exchanges, with the number of exchanges explicit. -/
+inductive ReachesPairing : Hand → Hand → Nat → Prop
+  | done {hand} : ReachesPairing hand hand 0
+  | step {hand next target distance} :
+      PairingExchange hand next →
+      ReachesPairing next target distance →
+      ReachesPairing hand target (distance + 1)
+
+lemma ReachesPairing.toReachesExchange :
+    ReachesPairing before after distance →
+      ReachesExchange before after distance := by
+  intro h
+  induction h with
+  | done =>
+      exact .done
+  | step hstep hrest ih =>
+      exact .step hstep.handStep ih
+
+lemma sevenPairsTargetCounts_single
+    (pairs : Finset Tile) (single : Tile) (hsingle : single ∉ pairs) :
+    sevenPairsTargetCounts pairs single single = 1 := by
+  simp [sevenPairsTargetCounts, hsingle]
+
+lemma sevenPairsTargetCounts_pair
+    (pairs : Finset Tile) (single tile : Tile) (htile : tile ∈ pairs) :
+    sevenPairsTargetCounts pairs single tile = 2 := by
+  simp [sevenPairsTargetCounts, htile]
+
+lemma sevenPairsTargetCounts_other
+    (pairs : Finset Tile) (single tile : Tile)
+    (htile : tile ∉ pairs) (hne : tile ≠ single) :
+    sevenPairsTargetCounts pairs single tile = 0 := by
+  simp [sevenPairsTargetCounts, htile, hne]
+
+lemma exchangeDistance_eq_target_deficit
+    (hand : Hand) (pairs : Finset Tile) (single : Tile) :
+    exchangeDistance hand (sevenPairsTargetCounts pairs single) =
+      ∑ tile : Tile, (sevenPairsTargetCounts pairs single tile - hand.counts tile) := by
+  simp [exchangeDistance, countDeficit]
+
 /--
 The maximum shanten number of a thirteen-tile hand is at most six.  For the
 seven-pairs argument, the relevant witness is a completion reachable in
