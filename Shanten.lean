@@ -226,9 +226,15 @@ def tileCount (hand : Hand) : Nat :=
 def pairCount (hand : Hand) : Nat :=
   (Finset.univ.filter fun tile => 2 ≤ hand.counts tile).card
 
-/-- A concealed hand containing exactly thirteen standing tiles. -/
+/-- The number of distinct tile kinds occurring in a hand. -/
+def distinctTileCount (hand : Hand) : Nat :=
+  (Finset.univ.filter fun tile => 0 < hand.counts tile).card
+
+/-- A concealed hand from the four-copy deck containing exactly thirteen tiles. -/
 def IsThirteenTileHand (hand : Hand) : Prop :=
-  hand.fixedMelds = 0 ∧ tileCount hand = 13
+ hand.fixedMelds = 0 ∧
+   tileCount hand = 13 ∧
+   ∀ tile, hand.counts tile ≤ 4
 
 /--
 The maximum shanten number of a thirteen-tile hand is at most six.  For the
