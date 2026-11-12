@@ -227,7 +227,10 @@ def IsThirteenTileHand (hand : Hand) : Prop :=
   hand.fixedMelds = 0 ∧ tileCount hand = 13
 
 /--
-The maximum shanten number of a thirteen-tile hand is at most six.
+The maximum shanten number of a thirteen-tile hand is at most six.  For the
+seven-pairs argument, the relevant witness is a completion reachable in
+distance seven: six exchanges create six pairs, and one final draw creates
+the seventh pair.  Since shanten is distance minus one, this gives `6`.
 
 This is the combinatorial bound for the three hand shapes specified above.
 Its proof is intentionally left as an interface theorem: the definitions in
