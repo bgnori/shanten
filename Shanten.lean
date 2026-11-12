@@ -407,6 +407,18 @@ inductive ReachesExchange : Hand → Hand → Nat → Prop
       ReachesExchange next target distance →
       ReachesExchange hand target (distance + 1)
 
+lemma ReachesExchange.append
+    (hfirst : ReachesExchange before middle distance₁)
+    (hsecond : ReachesExchange middle after distance₂) :
+    ReachesExchange before after (distance₁ + distance₂) := by
+  induction hfirst with
+  | done =>
+      simpa using hsecond
+  | step hstep hrest ih =>
+      have hcombined := ih hsecond
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+        ReachesExchange.step hstep hcombined
+
 lemma pairingCandidate_not_pair
     (hand : Hand) (tile : Tile) (hcandidate : IsPairingCandidate hand tile) :
     ¬ 2 ≤ hand.counts tile := by
