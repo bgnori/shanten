@@ -15,7 +15,13 @@ inductive Suit
   | man
   | pin
   | sou
-  deriving DecidableEq, Fintype
+  deriving DecidableEq
+
+instance : Fintype Suit where
+  elems := {.man, .pin, .sou}
+  complete := by
+    intro suit
+    cases suit <;> simp
 
 /-- A normalized tile kind (the three red fives are merged into their fives). -/
 inductive Tile
