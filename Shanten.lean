@@ -1180,6 +1180,63 @@ def ProtectedPairingInvariant
   (∀ tile, tile ∈ protectedTiles → 0 < hand.counts tile) ∧
     (∀ tile, 2 ≤ hand.counts tile → tile ∈ protectedTiles)
 
+lemma exists_protectedTiles
+    (hand : Hand) (hdistinct : 7 ≤ distinctTileCount hand)
+    (hpairs : pairCount hand < 6) :
+    ∃ protectedTiles : Finset Tile,
+      protectedTiles.card = 7 ∧
+        ProtectedPairingInvariant protectedTiles hand := by
+  classical
+  let pairs : Finset Tile :=
+    Finset.univ.filter (fun tile => 2 ≤ hand.counts tile)
+  let present : Finset Tile :=
+    Finset.univ.filter (fun tile => 0 < hand.counts tile)
+  have hpairsCard : pairs.card = pairCount hand := by
+    rfl
+  have hpresentCard : present.card = distinctTileCount hand := by
+    rfl
+  have hpairsSubset : pairs ⊆ present := by
+    intro tile htile
+    simp only [pairs, Finset.mem_filter, Finset.mem_univ, true_and] at htile
+    simp only [present, Finset.mem_filter, Finset.mem_univ, true_and]
+    omega
+  have hdiffCard :
+      (present \ pairs).card = present.card - pairs.card := by
+    exact Finset.card_sdiff_of_subset hpairsSubset
+  have hextraCard : 7 - pairs.card ≤ (present \ pairs).card := by
+    rw [hdiffCard, hpresentCard, hpairsCard]
+    omega
+  obtain ⟨extra, hextraSubset, hextra⟩ :=
+    Finset.exists_subset_card_eq hextraCard
+  let protectedTiles := pairs ∪ extra
+  have hdisjoint : Disjoint pairs extra := by
+    rw [Finset.disjoint_left]
+    intro tile hpair hextra'
+    have hdiff' : tile ∈ present \ pairs :=
+      hextraSubset hextra'
+    exact (Finset.mem_sdiff.mp hdiff').2 hpair
+  have hprotectedCard : protectedTiles.card = 7 := by
+    change (pairs ∪ extra).card = 7
+    rw [Finset.card_union_of_disjoint hdisjoint]
+    rw [hextra, hpairsCard]
+    omega
+  refine ⟨protectedTiles, hprotectedCard, ?_⟩
+  constructor
+  · intro tile htile
+    rcases Finset.mem_union.mp (show tile ∈ pairs ∪ extra from htile) with
+      hpair | hextra'
+    · simp only [pairs, Finset.mem_filter, Finset.mem_univ, true_and] at hpair
+      omega
+    · have hdiff' : tile ∈ present \ pairs :=
+        hextraSubset hextra'
+      have hpresent' := (Finset.mem_sdiff.mp hdiff').1
+      simp only [present, Finset.mem_filter, Finset.mem_univ, true_and] at hpresent'
+      exact hpresent'
+  · intro tile htile
+    apply Finset.mem_union_left
+    simp only [pairs, Finset.mem_filter, Finset.mem_univ, true_and]
+    exact htile
+
 /-- Repeated exchanges that make pairs in a fixed protected set. -/
 inductive ReachesProtectedPairMaking
     (protectedTiles : Finset Tile) : Hand → Hand → Nat → Prop
