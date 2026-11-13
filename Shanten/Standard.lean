@@ -754,6 +754,23 @@ def targetHand (before : Hand) (target : TileCounts) : Hand :=
   { counts := target
     fixedMelds := before.fixedMelds }
 
+def countsOfTiles (tiles : Multiset Tile) : TileCounts :=
+  fun tile => tiles.count tile
+
+lemma targetHand_hasTiles_countsOfTiles
+    (before : Hand) (tiles : Multiset Tile) :
+    HasTiles (targetHand before (countsOfTiles tiles)) tiles := by
+  intro tile
+  rfl
+
+lemma countsOfTiles_sum_eq_card (tiles : Multiset Tile) :
+    (∑ tile : Tile, countsOfTiles tiles tile) = tiles.card := by
+  induction tiles using Multiset.induction_on with
+  | empty =>
+      simp [countsOfTiles]
+  | @cons tile tiles ih =>
+      simp [countsOfTiles, ih, Finset.sum_add_distrib]
+
 lemma reachesExchange_targetHand_of_equal_sum
     (before : Hand) (target : TileCounts)
     (hsum : (∑ tile : Tile, before.counts tile) =
@@ -867,6 +884,23 @@ lemma reachesCompletion_standard_of_equal_sum
 /-- A target has the required number of concealed melds for a hand. -/
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
+
+def completedTargetForState (state : StandardSearchState) (pair : Tile) :
+    Multiset Tile :=
+  pairTiles pair + meldsTiles (completedMeldsForState state)
+
+lemma complete_standard_completedTarget
+    (before : Hand) (state : StandardSearchState) (pair : Tile)
+    (hvalid : ValidCounts
+      (targetHand before (countsOfTiles (completedTargetForState state pair))))
+    (hmelds : HasStandardMeldCount before (completedMeldsForState state)) :
+    Complete .standard
+      (targetHand before (countsOfTiles (completedTargetForState state pair))) := by
+  apply complete_standard_targetHand
+  · exact hvalid
+  · exact hmelds
+  · exact targetHand_hasTiles_countsOfTiles before
+      (completedTargetForState state pair)
 
 /-- A target is a valid standard-form completion for the standing tiles. -/
 def IsStandardTarget
