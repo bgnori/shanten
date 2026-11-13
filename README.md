@@ -7,6 +7,8 @@ It depends only on the Go standard library, not on the parent aka37 module.
 
 The Lean4-first verification and Go implementation plan is documented in
 [docs/SHANTEN_LEAN4_PLAN.md](docs/SHANTEN_LEAN4_PLAN.md).
+The planned Lean source decomposition is documented in
+[docs/SHANTEN_LEAN_STRUCTURE.md](docs/SHANTEN_LEAN_STRUCTURE.md).
 
 ## Input
 
