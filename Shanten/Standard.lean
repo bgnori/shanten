@@ -696,6 +696,42 @@ lemma reachesExchange_targetHand_of_equal_sum
       · simpa [next, targetHand, exchangeHand] using hrest
   exact aux (countDeficit before.counts target) before hsum rfl
 
+lemma complete_standard_targetHand
+    (before : Hand) (target : TileCounts)
+    (pair : Tile) (melds : List Meld)
+    (hvalid : ValidCounts (targetHand before target))
+    (hmelds : melds.length + before.fixedMelds = 4)
+    (htiles :
+      HasTiles (targetHand before target)
+        (pairTiles pair + meldsTiles melds)) :
+    Complete .standard (targetHand before target) := by
+  exact ⟨hvalid, pair, melds, hmelds, htiles⟩
+
+lemma reachesCompletion_standard_of_equal_sum
+    (before : Hand) (target : TileCounts)
+    (pair : Tile) (melds : List Meld)
+    (hsum : (∑ tile : Tile, before.counts tile) =
+      ∑ tile : Tile, target tile)
+    (hvalid : ValidCounts (targetHand before target))
+    (hmelds : melds.length + before.fixedMelds = 4)
+    (htiles :
+      HasTiles (targetHand before target)
+        (pairTiles pair + meldsTiles melds)) :
+    ∃ distance,
+      ReachesCompletion Complete .standard before distance := by
+  obtain ⟨distance, hexchange⟩ :=
+    reachesExchange_targetHand_of_equal_sum before target hsum
+  have hcomplete :
+      Complete .standard (targetHand before target) :=
+    complete_standard_targetHand before target pair melds
+      hvalid hmelds htiles
+  have hdone :
+      ReachesCompletion Complete .standard
+        (targetHand before target) 0 :=
+    ReachesCompletion.done hcomplete
+  exact ⟨distance,
+    ReachesExchange.toReachesCompletion hexchange hdone⟩
+
 /-- A target has the required number of concealed melds for a hand. -/
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
