@@ -271,6 +271,28 @@ lemma taatsuCompletionTiles_card (taatsus : List Taatsu) :
   | cons taatsu taatsus ih =>
       simp [taatsuCompletionTiles, ih]
 
+def completedMeldsForState (state : StandardSearchState) : List Meld :=
+  state.meldHistory.reverse ++
+    taatsuCompletionMelds state.taatsuHistory.reverse
+
+lemma completedMeldsForState_length
+    (state : StandardSearchState) :
+    (completedMeldsForState state).length =
+      state.meldHistory.length + state.taatsuHistory.length := by
+  simp [completedMeldsForState, taatsuCompletionMelds_length,
+    Nat.add_comm]
+
+lemma meldsTiles_append (left right : List Meld) :
+    meldsTiles (left ++ right) = meldsTiles left + meldsTiles right := by
+  induction left with
+  | nil =>
+      simp [meldsTiles]
+  | cons meld left ih =>
+      change meldTiles meld + meldsTiles (left ++ right) =
+        (meldTiles meld + meldsTiles left) + meldsTiles right
+      rw [ih]
+      ac_rfl
+
 def stateHistoryTiles (state : StandardSearchState) : Multiset Tile :=
   pairHistoryTiles state.pair +
     meldsTiles state.meldHistory.reverse +
@@ -488,6 +510,18 @@ def standardTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
 def standardTargetWithTaatsu
     (pair : Tile) (melds : List Meld) (taatsus : List Taatsu) : Multiset Tile :=
   standardTarget pair melds + taatsuHistoryTiles taatsus
+
+lemma completedMeldsForState_tiles
+    (state : StandardSearchState) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    pairTiles pair + meldsTiles (completedMeldsForState state) =
+      standardTargetWithTaatsu pair state.meldHistory.reverse
+          state.taatsuHistory.reverse +
+        taatsuCompletionTiles state.taatsuHistory.reverse := by
+  simp only [completedMeldsForState, standardTargetWithTaatsu, standardTarget]
+  rw [meldsTiles_append]
+  rw [← taatsuHistoryTiles_add_completionTiles]
+  ac_rfl
 
 def standardTargetWithTaatsuOfState
     (state : StandardSearchState) : Option (Multiset Tile) :=
