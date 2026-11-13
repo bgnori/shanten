@@ -32,6 +32,7 @@ structure Hand where
 inductive Meld
   | triplet (tile : Tile)
   | sequence (suit : Suit) (start : Fin 7)
+  deriving DecidableEq, Fintype
 
 /-- The tile multiset represented by one concealed meld. -/
 def meldTiles : Meld → Multiset Tile

@@ -13,6 +13,7 @@ Shanten/
   Core.lean
   Specification.lean
   SevenPairs.lean
+  Standard.lean
   Bounds.lean
 Shanten.lean
 ```
@@ -28,7 +29,7 @@ import Shanten.Bounds
 ```
 
 面子手および国士無双のシャンテン数に関する証明が追加されるまでは、
-この4ファイルを超える細分化は行わない。証明が追加され、各形の責務や
+この5ファイルを超える細分化は行わない。証明が追加され、各形の責務や
 依存関係が明確になった時点で、必要なら改めて分割を検討する。
 
 ## 各ファイルの責務
@@ -123,6 +124,20 @@ import Shanten.Bounds
 DPの探索状態・遷移・評価関数そのものは、このファイルには置かない。実行用計算器
 と証明で共有する一般形DPは、形の仕様と独立した計算モジュールとして追加する。
 `Bounds.lean` は、そのDPが提供する到達性補題をシャンテン数の上界へ変換する層とする。
+
+### `Standard.lean`
+
+実行用計算器と証明で共有する、標準形の有限探索基盤を置く。
+
+- `StandardSearchState`
+- `standardTarget`
+- `targetDeficit`
+- `standardTargetDistance`
+- 標準形の目標と探索状態に関する不変条件
+
+このファイルには、総合シャンテン値や上界定理を置かない。まず枝刈りのないDPを
+実装し、その健全性・完全性を証明した後、`Bounds.lean` から到達性補題として
+利用する。
 
 このファイルは個別の交換操作の詳細を持たず、`Specification.lean` と
 `SevenPairs.lean` が提供する定義・補題を組み合わせる層とする。
