@@ -1020,6 +1020,53 @@ lemma StandardBlockDecomposition.blockChoices_tiles
     standardTargetWithTaatsu, standardTarget]
   ac_rfl
 
+lemma standardChoiceTiles_prefix_count_le
+    (pre suffix : List StandardChoice) (tile : Tile) :
+    (standardChoiceTiles pre).count tile ≤
+      (standardChoiceTiles (pre ++ suffix)).count tile := by
+  rw [standardChoiceTiles_append]
+  simp only [Multiset.count_add]
+  omega
+
+lemma StandardBlockDecomposition.prefix_count_le_hand
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
+    (pre suffix : List StandardChoice)
+    (hchoices : decomposition.blockChoices = pre ++ suffix) :
+    ∀ tile, (standardChoiceTiles pre).count tile ≤ hand.counts tile := by
+  intro tile
+  have hprefix :
+      (standardChoiceTiles pre).count tile ≤
+        (standardChoiceTiles decomposition.blockChoices).count tile := by
+    rw [hchoices]
+    exact standardChoiceTiles_prefix_count_le pre suffix tile
+  have htarget :
+      (standardChoiceTiles decomposition.blockChoices).count tile ≤
+        hand.counts tile := by
+    rw [decomposition.blockChoices_tiles]
+    exact decomposition.targetWithinHand tile
+  exact hprefix.trans htarget
+
+lemma StandardBlockDecomposition.prefix_completion_count_le_four
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
+    (pre suffix : List StandardChoice)
+    (hchoices : decomposition.blockChoices = pre ++ suffix) :
+    ∀ tile,
+        (standardChoiceTiles pre +
+        taatsuCompletionTiles decomposition.taatsus).count tile ≤ 4 := by
+  intro tile
+  have hprefix :
+        (standardChoiceTiles pre).count tile ≤
+        (standardChoiceTiles decomposition.blockChoices).count tile := by
+    rw [hchoices]
+    exact standardChoiceTiles_prefix_count_le pre suffix tile
+  have hfull :
+      (standardChoiceTiles decomposition.blockChoices +
+        taatsuCompletionTiles decomposition.taatsus).count tile ≤ 4 := by
+    rw [decomposition.blockChoices_tiles]
+    exact decomposition.completionCopyLimit tile
+  rw [Multiset.count_add] at hfull ⊢
+  omega
+
 def StandardBlockDecomposition.completedTarget
     {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
     Multiset Tile :=
