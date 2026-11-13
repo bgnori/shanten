@@ -115,8 +115,14 @@ import Shanten.Bounds
 - `overallShanten_le_six_of_thirteenTileHand`
 - `shapeShanten_le_six_of_completion_bound`
 - `sevenPairsShanten_le_six_of_completion_bound`
+- `standardShanten_le_eight_of_completion_bound`
+- `overallShanten_le_eight_of_fixedMelds`
 - 標準形・国士無双向けの上界定理
 - 国士無双の直接計算に関する定理
+
+DPの探索状態・遷移・評価関数そのものは、このファイルには置かない。実行用計算器
+と証明で共有する一般形DPは、形の仕様と独立した計算モジュールとして追加する。
+`Bounds.lean` は、そのDPが提供する到達性補題をシャンテン数の上界へ変換する層とする。
 
 このファイルは個別の交換操作の詳細を持たず、`Specification.lean` と
 `SevenPairs.lean` が提供する定義・補題を組み合わせる層とする。
@@ -160,8 +166,11 @@ Core
 - `Complete` の標準形・七対子・国士無双ごとの完全な分離
 - 七対子の証明を交換操作ごとに複数ファイルへ分割すること
 - 固定面子の牌内容を `Hand` に追加するモデル変更
-- 計算可能なシャンテン計算器の追加
 - 面子手および国士無双の未完成な証明を先回りして配置すること
+
+計算可能なシャンテン計算器は、面子手の証明を進めるための共通DPとして追加する。
+ただし、最適化版の計算器やGo側の実装は、枝刈りのない基準DPとその正当性が確立
+した後に着手する。
 
 特に、面子手や国士無双の証明が加わる前に形ごとのファイルを増やすと、
 未確定の依存関係を固定してしまう。まず4ファイル構成で責務を分け、
