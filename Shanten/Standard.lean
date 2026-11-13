@@ -1802,6 +1802,24 @@ lemma standardTargetDistance_eq_countDeficit
         (countsOfTiles (standardTarget pair melds)) := by
   rfl
 
+lemma standardTargetDistance_exchange
+    (hand : Hand) (pair : Tile) (melds : List Meld)
+    (discarded drawn : Tile)
+    (hdrawn :
+      (standardTarget pair melds).count drawn > hand.counts drawn)
+    (hdiscarded :
+      hand.counts discarded >
+        (standardTarget pair melds).count discarded)
+    (hne : discarded ≠ drawn) :
+    standardTargetDistance
+        (exchangeHand hand discarded drawn) pair melds =
+      standardTargetDistance hand pair melds - 1 := by
+  rw [standardTargetDistance_eq_countDeficit,
+    standardTargetDistance_eq_countDeficit]
+  exact countDeficit_exchange
+    (countsOfTiles (standardTarget pair melds))
+    hand discarded drawn hdrawn hdiscarded hne
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
