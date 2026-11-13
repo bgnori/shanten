@@ -82,9 +82,19 @@ def allStandardChoices : Finset StandardChoice :=
       Finset.univ.image (fun taatsu =>
         StandardChoice.taatsu (taatsuTiles taatsu)))
 
+def choicesForTile (tile : Tile) : Finset StandardChoice :=
+  allStandardChoices.filter
+    (fun choice => choice = .skip ∨ tile ∈ choiceTiles choice)
+
 def NextStandardState
     (hand : Hand) (state next : StandardSearchState) : Prop :=
   ∃ choice, choice ∈ allStandardChoices ∧
+    ∃ hvalid : ValidStandardChoice hand state choice,
+      next = applyStandardChoice hand state choice hvalid
+
+def NextStandardStateAt
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState) : Prop :=
+  ∃ choice, choice ∈ choicesForTile tile ∧
     ∃ hvalid : ValidStandardChoice hand state choice,
       next = applyStandardChoice hand state choice hvalid
 
@@ -98,6 +108,20 @@ lemma nextStandardState_used_subset
 lemma nextStandardState_tileIndex
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardState hand state next) :
+    state.tileIndex < next.tileIndex := by
+  rcases hnext with ⟨choice, _, hvalid, rfl⟩
+  simp [applyStandardChoice]
+
+lemma nextStandardStateAt_used_subset
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
+    (hnext : NextStandardStateAt hand tile state next) :
+    ∀ tile', next.used.count tile' ≤ hand.counts tile' := by
+  rcases hnext with ⟨choice, _, hvalid, rfl⟩
+  exact applyStandardChoice_used_subset hand state choice hvalid
+
+lemma nextStandardStateAt_tileIndex
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
+    (hnext : NextStandardStateAt hand tile state next) :
     state.tileIndex < next.tileIndex := by
   rcases hnext with ⟨choice, _, hvalid, rfl⟩
   simp [applyStandardChoice]
@@ -126,6 +150,26 @@ def IsStandardSearchComplete
 def StandardSearch
     (hand : Hand) (fuel : Nat) : Prop :=
   ∃ state, reachableWithin hand fuel state ∧
+    IsStandardSearchComplete hand state
+
+/-- States reached from a given state while processing tile kinds in order. -/
+def reachableOnTilesFrom
+    (hand : Hand) : List Tile → StandardSearchState →
+      StandardSearchState → Prop
+  | [], start, state => state = start
+  | tile :: tiles, start, state =>
+      ∃ middle,
+        NextStandardStateAt hand tile start middle ∧
+          reachableOnTilesFrom hand tiles middle state
+
+/-- States reached while processing a prescribed sequence of tile kinds. -/
+def reachableOnTiles
+    (hand : Hand) (tiles : List Tile) (state : StandardSearchState) : Prop :=
+  reachableOnTilesFrom hand tiles initialStandardState state
+
+def StandardSearchOnTiles
+    (hand : Hand) (tiles : List Tile) : Prop :=
+  ∃ state, reachableOnTiles hand tiles state ∧
     IsStandardSearchComplete hand state
 
 lemma reachableWithin_zero_iff
