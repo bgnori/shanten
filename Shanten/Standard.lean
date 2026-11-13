@@ -458,6 +458,11 @@ lemma reachesExchange_of_targetExchange
       hdrawn hdiscarded hne)
   exact hrest
 
+lemma exchangeHand_fixedMelds
+    (before : Hand) (discarded drawn : Tile) :
+    (exchangeHand before discarded drawn).fixedMelds = before.fixedMelds := by
+  rfl
+
 def standardTargetOfState
     (state : StandardSearchState) : Option (Multiset Tile) :=
   state.pair.map fun pair =>
