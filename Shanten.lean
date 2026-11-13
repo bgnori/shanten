@@ -2083,7 +2083,7 @@ Its proof is intentionally left as an interface theorem: the definitions in
 this file specify completion and shanten, but do not implement the finite
 enumeration needed to establish the bound.
 -/
-theorem maxShanten13
+theorem overallShanten_le_six_of_thirteenTileHand
     (h13 : IsThirteenTileHand hand)
     (value : Int)
     (hvalue : IsOverallShanten hand value) :
@@ -2135,5 +2135,75 @@ theorem maxShanten13
       rw [← hvalue']
       exact le_trans (min_le_right _ _) (min_le_left _ _)
     omega
+
+/--
+If a shape has a completion reachable in at most seven steps, then its
+shape-specific shanten value is at most six.  This is the common bound used
+by the three hand-shape arguments below; it does not use any comparison
+between the three shapes.
+-/
+theorem shapeShanten_le_six_of_completion_bound
+    (happlicable : Applicable shape hand)
+    (hbound : ∃ distance : Nat, distance ≤ 7 ∧
+      ReachesCompletion Complete shape hand distance)
+    (value : Int)
+    (hvalue : IsShapeShanten hand shape value) :
+    value ≤ 6 := by
+  classical
+  obtain ⟨bound, hbound', hreachable⟩ := hbound
+  let reachable : Nat → Prop :=
+    fun distance => ReachesCompletion Complete shape hand distance
+  have hexists : ∃ distance, reachable distance :=
+    ⟨bound, hreachable⟩
+  let distance := Nat.find hexists
+  have hdistance : reachable distance :=
+    Nat.find_spec hexists
+  have hminimal : ∀ smaller, smaller < distance → ¬ reachable smaller := by
+    intro smaller hsmaller
+    exact Nat.find_min hexists (by simpa [distance] using hsmaller)
+  have hdistance_le : distance ≤ 7 := by
+    exact le_trans
+      (Nat.find_min' hexists (show reachable bound from hreachable)) hbound'
+  have hshape :
+      IsShapeShanten hand shape ((distance : Int) - 1) := by
+    refine ⟨happlicable, distance, by omega, hdistance, ?_⟩
+    intro smaller hsmaller hsmall
+    exact hminimal smaller hsmaller hsmall
+  have heq :
+      value = (distance : Int) - 1 :=
+    isShapeShanten_unique hvalue hshape
+  omega
+
+/-- The seven-pairs component of the thirteen-tile upper bound. -/
+theorem sevenPairsShanten_le_six_of_completion_bound
+    (h13 : IsThirteenTileHand hand)
+    (value : Int)
+    (hvalue : IsShapeShanten hand .sevenPairs value) :
+    value ≤ 6 := by
+  apply shapeShanten_le_six_of_completion_bound
+    (show Applicable .sevenPairs hand from h13.1)
+    (reaches_sevenPairs_completion hand h13) value hvalue
+
+/-- The standard-form component of the thirteen-tile upper bound. -/
+theorem standardShanten_le_six_of_completion_bound
+    (happlicable : Applicable .standard hand)
+    (hbound : ∃ distance : Nat, distance ≤ 7 ∧
+      ReachesCompletion Complete .standard hand distance)
+    (value : Int)
+    (hvalue : IsShapeShanten hand .standard value) :
+    value ≤ 6 := by
+  apply shapeShanten_le_six_of_completion_bound
+    happlicable hbound value hvalue
+
+/-- The thirteen-orphans component of the thirteen-tile upper bound. -/
+theorem thirteenOrphansShanten_le_six_of_completion_bound
+    (happlicable : Applicable .thirteenOrphans hand)
+    (hbound : ∃ distance : Nat, distance ≤ 7 ∧
+      ReachesCompletion Complete .thirteenOrphans hand distance)
+    (value : Int)
+    (hvalue : IsShapeShanten hand .thirteenOrphans value) :
+    value ≤ 6 := by
+  apply shapeShanten_le_six_of_completion_bound
+    happlicable hbound value hvalue
 
 end Shanten
