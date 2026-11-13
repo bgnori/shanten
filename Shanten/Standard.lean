@@ -944,6 +944,46 @@ def NextStandardStateWithCopyLimit
         (applyStandardChoice hand state choice hvalid) ∧
       next = applyStandardChoice hand state choice hvalid
 
+noncomputable def copyLimitChoices
+    (hand : Hand) (state : StandardSearchState) : Finset StandardChoice :=
+  by
+    classical
+    exact allStandardChoices.filter
+      (fun choice =>
+        ∃ hvalid : ValidStandardChoice hand state choice,
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state choice hvalid))
+
+lemma mem_copyLimitChoices_iff
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) :
+    choice ∈ copyLimitChoices hand state ↔
+      choice ∈ allStandardChoices ∧
+        ∃ hvalid : ValidStandardChoice hand state choice,
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state choice hvalid) := by
+  classical
+  change choice ∈ allStandardChoices.filter _ ↔ _
+  rw [Finset.mem_filter]
+
+lemma nextStandardStateWithCopyLimit_iff
+    (hand : Hand) (state next : StandardSearchState) :
+    NextStandardStateWithCopyLimit hand state next ↔
+      ∃ choice, choice ∈ copyLimitChoices hand state ∧
+        ∃ hvalid : ValidStandardChoice hand state choice,
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state choice hvalid) ∧
+          next = applyStandardChoice hand state choice hvalid := by
+  classical
+  constructor
+  · rintro ⟨choice, hchoice, hvalid, hcopy, rfl⟩
+    refine ⟨choice, ?_, hvalid, hcopy, rfl⟩
+    change choice ∈ allStandardChoices.filter _
+    exact Finset.mem_filter.mpr ⟨hchoice, ⟨hvalid, hcopy⟩⟩
+  · rintro ⟨choice, hchoice, hvalid, hcopy, rfl⟩
+    change choice ∈ allStandardChoices.filter _ at hchoice
+    exact ⟨choice, (Finset.mem_filter.mp hchoice).1,
+      hvalid, hcopy, rfl⟩
+
 lemma nextStandardStateWithCopyLimit_copyLimit
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
