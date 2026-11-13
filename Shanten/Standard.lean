@@ -952,6 +952,56 @@ lemma reachesCompletion_standard_of_equal_sum
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
 
+/-- A standard-form decomposition before completing its taatsu blocks. -/
+structure StandardBlockDecomposition (hand : Hand) where
+  pair : Tile
+  melds : List Meld
+  taatsus : List Taatsu
+  blocks : melds.length + taatsus.length + hand.fixedMelds = 4
+  targetWithinHand :
+    ∀ tile,
+      (standardTargetWithTaatsu pair melds taatsus).count tile ≤ hand.counts tile
+  completionCopyLimit :
+    ∀ tile,
+      (standardTargetWithTaatsu pair melds taatsus +
+        taatsuCompletionTiles taatsus).count tile ≤ 4
+
+def StandardBlockDecomposition.completedTarget
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    Multiset Tile :=
+  standardTargetWithTaatsu decomposition.pair decomposition.melds
+      decomposition.taatsus +
+    taatsuCompletionTiles decomposition.taatsus
+
+lemma StandardBlockDecomposition.completedTarget_eq
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    decomposition.completedTarget =
+      pairTiles decomposition.pair +
+        meldsTiles
+          (decomposition.melds ++
+            taatsuCompletionMelds decomposition.taatsus) := by
+  unfold StandardBlockDecomposition.completedTarget
+    standardTargetWithTaatsu standardTarget
+  rw [meldsTiles_append]
+  rw [← taatsuHistoryTiles_add_completionTiles]
+  ac_rfl
+
+lemma StandardBlockDecomposition.validCounts_completedTarget
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    ValidCounts
+      (targetHand hand (countsOfTiles decomposition.completedTarget)) := by
+  intro tile
+  exact decomposition.completionCopyLimit tile
+
+lemma StandardBlockDecomposition.completedMeldCount
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    (decomposition.melds ++
+      taatsuCompletionMelds decomposition.taatsus).length +
+        hand.fixedMelds = 4 := by
+  rw [List.length_append, taatsuCompletionMelds_length]
+  have hblocks := decomposition.blocks
+  omega
+
 def completedTargetForState (state : StandardSearchState) (pair : Tile) :
     Multiset Tile :=
   pairTiles pair + meldsTiles (completedMeldsForState state)
