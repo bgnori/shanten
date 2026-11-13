@@ -634,6 +634,18 @@ lemma ReachesExchange.append
       simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
         ReachesExchange.step hstep hcombined
 
+lemma ReachesExchange.toReachesCompletion
+    (hfirst : ReachesExchange before middle distance₁)
+    (hsecond : ReachesCompletion complete shape middle distance₂) :
+    ReachesCompletion complete shape before (distance₁ + distance₂) := by
+  induction hfirst with
+  | done =>
+      simpa using hsecond
+  | step hstep hrest ih =>
+      have hcombined := ih hsecond
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+        ReachesCompletion.step hstep hcombined
+
 lemma pairingCandidate_not_pair
     (hand : Hand) (tile : Tile) (hcandidate : IsPairingCandidate hand tile) :
     ¬ 2 ≤ hand.counts tile := by
