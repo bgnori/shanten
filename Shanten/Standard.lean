@@ -1020,6 +1020,22 @@ def NextStandardStateAtWithCopyLimit
         (applyStandardChoice hand state choice hvalid) ∧
       next = applyStandardChoice hand state choice hvalid
 
+lemma nextStandardStateAtWithCopyLimit_of_choice
+    (hand : Hand) (tile : Tile) (state : StandardSearchState)
+    (choice : StandardChoice)
+    (hchoice : choice ∈ allStandardChoices)
+    (htile : tile ∈ choiceTiles choice)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hcopy :
+      CompletionRespectsCopyLimit
+        (applyStandardChoice hand state choice hvalid)) :
+    NextStandardStateAtWithCopyLimit hand tile state
+      (applyStandardChoice hand state choice hvalid) := by
+  refine ⟨choice, ?_, hvalid, hcopy, rfl⟩
+  apply (mem_choicesForTileWithCopyLimit_iff hand state tile choice).mpr
+  exact ⟨Finset.mem_filter.mpr ⟨hchoice, Or.inr htile⟩,
+    ⟨hvalid, hcopy⟩⟩
+
 lemma nextStandardStateAtWithCopyLimit_toNext
     (hand : Hand) (tile : Tile) (state next : StandardSearchState)
     (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
@@ -1034,6 +1050,17 @@ lemma nextStandardStateAtWithCopyLimit_copyLimit
     CompletionRespectsCopyLimit next := by
   rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
   exact hcopy
+
+lemma nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
+    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
+    NextStandardStateWithCopyLimit hand state next := by
+  classical
+  rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
+  change choice ∈ (choicesForTile tile).filter _ at hchoice
+  have hchoiceAll : choice ∈ allStandardChoices :=
+    (Finset.mem_filter.mp (Finset.mem_filter.mp hchoice).1).1
+  exact ⟨choice, hchoiceAll, hvalid, hcopy, rfl⟩
 
 def reachableOnTilesFromWithCopyLimit
     (hand : Hand) : List Tile → StandardSearchState →
@@ -1157,6 +1184,36 @@ lemma reachableWithinWithCopyLimit_to_reachableWithin
       rw [reachableWithin_succ_iff]
       exact ⟨previous, ih previous hprevious,
         nextStandardStateWithCopyLimit_toNext hand previous state hnext⟩
+
+lemma reachableOnTilesWithCopyLimit_to_reachableWithinWithCopyLimit
+    (hand : Hand) (tiles : List Tile) (state : StandardSearchState)
+    (hreachable : reachableOnTilesWithCopyLimit hand tiles state) :
+    reachableWithinWithCopyLimit hand tiles.length state := by
+  have aux :
+      ∀ (remaining : List Tile) (start state : StandardSearchState)
+        (fuel : Nat),
+        reachableWithinWithCopyLimit hand fuel start →
+        reachableOnTilesFromWithCopyLimit hand remaining start state →
+        reachableWithinWithCopyLimit hand (fuel + remaining.length) state := by
+    intro remaining
+    induction remaining with
+    | nil =>
+        intro start state fuel hprefix hrest
+        subst state
+        simpa using hprefix
+    | cons tile remaining ih =>
+        intro start state fuel hprefix hrest
+        rcases hrest with ⟨middle, hnext, htail⟩
+        have hmiddle :
+            reachableWithinWithCopyLimit hand (fuel + 1) middle := by
+          exact ⟨start, hprefix,
+            nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
+              hand tile start middle hnext⟩
+        have hresult := ih middle state (fuel + 1) hmiddle htail
+        simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hresult
+  have hresult := aux tiles initialStandardState state 0
+    (by rfl) hreachable
+  simpa using hresult
 
 lemma completedTargetForState_eq_used_add_completion
     (state : StandardSearchState) (pair : Tile)
