@@ -1,0 +1,19 @@
+{
+  "name": "shanten-dev",
+  "build": {
+    "dockerfile": "dev/Dockerfile"
+  },
+  "runArgs": ["--cpus=2", "--memory=16g"],
+  "mounts": [
+    "source=${localEnv:HOME}/.cache/mathlib,target=/home/vscode/.cache/mathlib,type=bind"
+  ],
+  "containerEnv": {
+    "MATHLIB_CACHE_DIR": "/home/vscode/.cache/mathlib"
+  },
+  "postCreateCommand": "elan toolchain install leanprover/lean4:v4.35.0 && lake update && lake exe cache get",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "leanprover.lean4"]
+    }
+  }
+}
