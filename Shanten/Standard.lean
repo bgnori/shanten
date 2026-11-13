@@ -1597,6 +1597,34 @@ lemma reachableOnTilesFromWithCopyLimit_insert_choice
     hand before (tile :: after) state middle final
     hbefore hchosen
 
+inductive AppliesStandardChoices (hand : Hand) :
+    StandardSearchState → List StandardChoice → StandardSearchState → Prop
+  | nil (state : StandardSearchState) :
+      AppliesStandardChoices hand state [] state
+  | cons (state : StandardSearchState) (choice : StandardChoice)
+      (hvalid : ValidStandardChoice hand state choice)
+      (final : StandardSearchState)
+      (htail :
+        AppliesStandardChoices hand
+          (applyStandardChoice hand state choice hvalid) choices final) :
+      AppliesStandardChoices hand state (choice :: choices) final
+
+lemma AppliesStandardChoices.used_eq
+    {hand : Hand} {state final : StandardSearchState}
+    {choices : List StandardChoice}
+    (hpath : AppliesStandardChoices hand state choices final) :
+    final.used = state.used + standardChoiceTiles choices := by
+  induction hpath with
+  | nil =>
+      simp [standardChoiceTiles]
+  | @cons state choice hvalid final choices htail ih =>
+      cases choice <;>
+        simp_all [applyStandardChoice, standardChoiceTiles, choiceTiles]
+      all_goals
+        try rw [ih]
+        try simp [applyStandardChoice, choiceTiles]
+        try ac_rfl
+
 lemma nextStandardStateWithCopyLimit_toNext
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
