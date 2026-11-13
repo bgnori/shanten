@@ -1036,6 +1036,35 @@ lemma nextStandardStateAtWithCopyLimit_of_choice
   exact ⟨Finset.mem_filter.mpr ⟨hchoice, Or.inr htile⟩,
     ⟨hvalid, hcopy⟩⟩
 
+lemma nextStandardStateAtWithCopyLimit_skip
+    (hand : Hand) (tile : Tile) (state : StandardSearchState)
+    (hused : ∀ tile, state.used.count tile ≤ hand.counts tile)
+    (hcopy : CompletionRespectsCopyLimit state)
+    (hmelds : state.melds ≤ 4)
+    (htaatsu : state.taatsu ≤ 4) :
+    NextStandardStateAtWithCopyLimit hand tile state
+      (applyStandardChoice hand state .skip
+        (by
+          refine ⟨?_, ?_, ?_, ?_⟩
+          · simpa [choiceTiles] using hused
+          · simpa [choiceUsesMeld] using hmelds
+          · simpa [choiceUsesTaatsu] using htaatsu
+          · simp [choiceUsesPair])) := by
+  let hvalid : ValidStandardChoice hand state .skip := by
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · simpa [choiceTiles] using hused
+    · simpa [choiceUsesMeld] using hmelds
+    · simpa [choiceUsesTaatsu] using htaatsu
+    · simp [choiceUsesPair]
+  refine ⟨.skip, ?_, hvalid, ?_, rfl⟩
+  apply (mem_choicesForTileWithCopyLimit_iff hand state tile .skip).mpr
+  · exact ⟨by simp [choicesForTile, allStandardChoices],
+      ⟨hvalid, by
+        simpa [CompletionRespectsCopyLimit, applyStandardChoice,
+          choiceTiles] using hcopy⟩⟩
+  · simpa [CompletionRespectsCopyLimit, applyStandardChoice,
+      choiceTiles] using hcopy
+
 lemma nextStandardStateAtWithCopyLimit_toNext
     (hand : Hand) (tile : Tile) (state next : StandardSearchState)
     (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
@@ -1164,6 +1193,51 @@ lemma reachableWithinWithCopyLimit_copyLimit
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       exact nextStandardStateWithCopyLimit_copyLimit hand previous state hnext
+
+lemma reachableWithinWithCopyLimit_melds_le_four
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    state.melds ≤ 4 := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      simp [initialStandardState]
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
+      have hbound := hvalid.2.1
+      simp only [applyStandardChoice] at hbound ⊢
+      omega
+
+lemma reachableWithinWithCopyLimit_used_subset
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    ∀ tile, state.used.count tile ≤ hand.counts tile := by
+  induction fuel generalizing state with
+  | zero =>
+      intro tile
+      subst state
+      simp [initialStandardState]
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      intro tile
+      rcases hnext with ⟨choice, _, hvalid, _, rfl⟩
+      exact hvalid.1 tile
+
+lemma reachableWithinWithCopyLimit_taatsu_le_four
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    state.taatsu ≤ 4 := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      simp [initialStandardState]
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
+      have hbound := hvalid.2.2.1
+      simp only [applyStandardChoice] at hbound ⊢
+      omega
 
 lemma nextStandardStateWithCopyLimit_toNext
     (hand : Hand) (state next : StandardSearchState)
