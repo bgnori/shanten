@@ -207,6 +207,32 @@ lemma standardSearch_complete_iff
         state.hasPair = true := by
   rfl
 
+def standardTileAt (index : Fin 34) : Tile :=
+  match index with
+  | ⟨value, hvalue⟩ =>
+        if hsuited : value < 27 then
+          let suit :=
+            if hman : value < 9 then Suit.man
+            else if hpin : value < 18 then Suit.pin
+            else Suit.sou
+          Tile.suited suit ⟨value % 9, by omega⟩
+        else
+          Tile.honor ⟨value - 27, by omega⟩
+
+def standardTileOrder : List Tile :=
+  (List.finRange 34).map standardTileAt
+
+def StandardSearchOnTileOrder (hand : Hand) : Prop :=
+  StandardSearchOnTiles hand standardTileOrder
+
+lemma standardTileOrder_length :
+    standardTileOrder.length = 34 := by
+  simp [standardTileOrder]
+
+lemma tile_mem_standardTileOrder :
+    ∀ tile : Tile, tile ∈ standardTileOrder := by
+  native_decide
+
 /-- A standard-form target before the fixed melds are added. -/
 def standardTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
   pairTiles pair + meldsTiles melds
