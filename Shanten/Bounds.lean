@@ -217,6 +217,90 @@ theorem shapeShanten_le_six_of_completion_bound
     isShapeShanten_unique hvalue hshape
   omega
 
+/--
+If a shape has a completion reachable in at most nine steps, then its
+shape-specific shanten value is at most eight.  In particular, the bound is
+independent of how many fixed melds the hand has: fixed melds are preserved by
+`HandStep` and are counted in `Complete .standard`.
+-/
+theorem standardShanten_le_eight_of_completion_bound
+    (hand : Hand)
+    (hbound : ∃ distance : Nat, distance ≤ 9 ∧
+      ReachesCompletion Complete .standard hand distance)
+    (value : Int)
+    (hvalue : IsShapeShanten hand .standard value) :
+    value ≤ 8 := by
+  classical
+  obtain ⟨bound, hbound', hreachable⟩ := hbound
+  let reachable : Nat → Prop :=
+    fun distance => ReachesCompletion Complete .standard hand distance
+  have hexists : ∃ distance, reachable distance :=
+    ⟨bound, hreachable⟩
+  let distance := Nat.find hexists
+  have hdistance : reachable distance :=
+    Nat.find_spec hexists
+  have hminimal : ∀ smaller, smaller < distance → ¬ reachable smaller := by
+    intro smaller hsmaller
+    exact Nat.find_min hexists (by simpa [distance] using hsmaller)
+  have hdistance_le : distance ≤ 9 := by
+    exact le_trans
+      (Nat.find_min' hexists (show reachable bound from hreachable)) hbound'
+  have hshape :
+      IsShapeShanten hand .standard ((distance : Int) - 1) := by
+    refine ⟨hvalue.1, distance, by omega, hdistance, ?_⟩
+    intro smaller hsmaller hsmall
+    exact hminimal smaller hsmaller hsmall
+  have heq :
+      value = (distance : Int) - 1 :=
+    isShapeShanten_unique hvalue hshape
+  omega
+
+/-- With a fixed meld, only the standard shape contributes to overall shanten. -/
+theorem overallShanten_le_eight_of_fixedMelds
+    (hand : Hand)
+    (hfixed : 0 < hand.fixedMelds)
+    (hbound : ∃ distance : Nat, distance ≤ 9 ∧
+      ReachesCompletion Complete .standard hand distance)
+    (value : Int)
+    (hvalue : IsOverallShanten hand value) :
+    value ≤ 8 := by
+  have hseven : ShapeShanten hand .sevenPairs = none := by
+    unfold ShapeShanten
+    split
+    next h =>
+      exfalso
+      exact (by
+        have happ : ¬ Applicable .sevenPairs hand := by
+          simp [Applicable, Nat.ne_of_gt hfixed]
+        exact happ (Classical.choose_spec h).1)
+    next h => rfl
+  have hthirteen : ShapeShanten hand .thirteenOrphans = none := by
+    unfold ShapeShanten
+    split
+    next h =>
+      exfalso
+      exact (by
+        have happ : ¬ Applicable .thirteenOrphans hand := by
+          simp [Applicable, Nat.ne_of_gt hfixed]
+        exact happ (Classical.choose_spec h).1)
+    next h => rfl
+  have hstandard := hvalue
+  unfold IsOverallShanten OverallShanten at hstandard
+  rw [hseven, hthirteen] at hstandard
+  cases hshape : ShapeShanten hand .standard with
+  | none =>
+      simp [hshape, minOption] at hstandard
+  | some standardValue =>
+      have hstandardValue :
+          IsShapeShanten hand .standard standardValue :=
+        (shapeShanten_eq_some_iff).1 hshape
+      have hle := standardShanten_le_eight_of_completion_bound
+        hand hbound standardValue hstandardValue
+      have hstandard' : some standardValue = some value := by
+        simpa [hshape, minOption] using hstandard
+      have heq : standardValue = value := Option.some.inj hstandard'
+      omega
+
 /-- The seven-pairs component of the thirteen-tile upper bound. -/
 theorem sevenPairsShanten_le_six_of_completion_bound
     (h13 : IsThirteenTileHand hand)
