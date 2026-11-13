@@ -271,6 +271,20 @@ lemma taatsuCompletionTiles_card (taatsus : List Taatsu) :
   | cons taatsu taatsus ih =>
       simp [taatsuCompletionTiles, ih]
 
+lemma meldTiles_card (meld : Meld) : (meldTiles meld).card = 3 := by
+  cases meld <;> simp [meldTiles]
+
+lemma meldsTiles_card (melds : List Meld) :
+    (meldsTiles melds).card = 3 * melds.length := by
+  induction melds with
+  | nil =>
+      rfl
+  | cons meld melds ih =>
+      change (meldTiles meld + meldsTiles melds).card =
+        3 * (melds.length + 1)
+      rw [Multiset.card_add, meldTiles_card, ih]
+      omega
+
 def completedMeldsForState (state : StandardSearchState) : List Meld :=
   state.meldHistory.reverse ++
     taatsuCompletionMelds state.taatsuHistory.reverse
