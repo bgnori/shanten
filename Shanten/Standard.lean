@@ -1166,4 +1166,25 @@ lemma complete_standard_of_blockSearch
       · exact completedMeldsForState_hasMeldCount
           before fuel state hreachable hcount
 
+lemma complete_standard_of_blockSearch_of_copyLimit
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcomplete : IsStandardBlockSearchComplete before state)
+    (hcopy : CompletionRespectsCopyLimit before state) :
+    ∃ pair,
+      Complete .standard
+        (targetHand before
+          (countsOfTiles (completedTargetForState state pair))) := by
+  rcases hcomplete with ⟨hcount, hpair⟩
+  cases hstatePair : state.pair with
+  | none =>
+      simp [hstatePair] at hpair
+  | some pair =>
+      refine ⟨pair, ?_⟩
+      apply complete_standard_completedTarget before state pair
+      · exact validCounts_completedTarget_of_copyLimit
+          before fuel state hreachable hcopy pair hstatePair
+      · exact completedMeldsForState_hasMeldCount
+          before fuel state hreachable hcount
+
 end Shanten
