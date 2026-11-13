@@ -1795,6 +1795,13 @@ def standardTargetDistance
     (hand : Hand) (pair : Tile) (melds : List Meld) : Nat :=
   targetDeficit hand (standardTarget pair melds)
 
+lemma standardTargetDistance_eq_countDeficit
+    (hand : Hand) (pair : Tile) (melds : List Meld) :
+    standardTargetDistance hand pair melds =
+      countDeficit hand.counts
+        (countsOfTiles (standardTarget pair melds)) := by
+  rfl
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
