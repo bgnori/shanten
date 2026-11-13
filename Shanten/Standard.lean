@@ -16,7 +16,6 @@ structure StandardSearchState where
   taatsuHistory : List Taatsu
   melds : Nat
   taatsu : Nat
-  hasPair : Bool
   deriving DecidableEq
 
 /-- One branch of the standard-form decomposition search. -/
@@ -57,7 +56,7 @@ def ValidStandardChoice
   (∀ tile, (state.used + choiceTiles choice).count tile ≤ hand.counts tile) ∧
   state.melds + (if choiceUsesMeld choice = true then 1 else 0) ≤ 4 ∧
   state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0) ≤ 4 ∧
-  (state.hasPair = true ∨ choiceUsesPair choice = false)
+  (state.pair.isNone ∨ choiceUsesPair choice = false)
 
 def applyStandardChoice
     (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
@@ -76,7 +75,7 @@ def applyStandardChoice
       | _ => state.taatsuHistory
     melds := state.melds + (if choiceUsesMeld choice = true then 1 else 0)
     taatsu := state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0)
-    hasPair := state.hasPair || choiceUsesPair choice }
+    }
 
 lemma applyStandardChoice_used_subset
     (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
@@ -145,8 +144,7 @@ def initialStandardState : StandardSearchState :=
     meldHistory := []
     taatsuHistory := []
     melds := 0
-    taatsu := 0
-    hasPair := false }
+    taatsu := 0 }
 
 /-- States reachable after exactly `fuel` decomposition choices. -/
 def reachableWithin
@@ -159,13 +157,149 @@ def reachableWithin
 
 def IsStandardSearchComplete
     (hand : Hand) (state : StandardSearchState) : Prop :=
-  state.melds + hand.fixedMelds = 4 ∧ state.hasPair = true
+  state.melds + hand.fixedMelds = 4 ∧ state.pair.isSome
 
 /-- The DP query: a complete standard decomposition is reachable in `fuel` choices. -/
 def StandardSearch
     (hand : Hand) (fuel : Nat) : Prop :=
   ∃ state, reachableWithin hand fuel state ∧
     IsStandardSearchComplete hand state
+
+def pairHistoryTiles (pair : Option Tile) : Multiset Tile :=
+  pair.elim 0 pairTiles
+
+def taatsuHistoryTiles : List Taatsu → Multiset Tile
+  | [] => 0
+  | taatsu :: taatsus => taatsuTiles taatsu + taatsuHistoryTiles taatsus
+
+def stateHistoryTiles (state : StandardSearchState) : Multiset Tile :=
+  pairHistoryTiles state.pair +
+    meldsTiles state.meldHistory.reverse +
+    taatsuHistoryTiles state.taatsuHistory.reverse
+
+lemma taatsuHistoryTiles_append_single (history : List Taatsu) (taatsu : Taatsu) :
+    taatsuHistoryTiles (history ++ [taatsu]) =
+      taatsuHistoryTiles history + taatsuTiles taatsu := by
+  induction history with
+  | nil => simp [taatsuHistoryTiles]
+  | cons head tail ih =>
+      simp [taatsuHistoryTiles, ih, Multiset.add_assoc]
+
+lemma meldsTiles_append_single (history : List Meld) (meld : Meld) :
+    meldsTiles (history ++ [meld]) =
+      meldsTiles history + meldTiles meld := by
+  have aux : ∀ (items : List Meld) (acc : Multiset Tile),
+      List.foldr (fun item rest => meldTiles item + rest) acc items =
+        List.foldr (fun item rest => meldTiles item + rest) 0 items + acc := by
+    intro items
+    induction items with
+    | nil =>
+        intro acc
+        simp
+    | cons head tail ih =>
+        intro acc
+        simp only [List.foldr]
+        rw [ih]
+        ac_rfl
+  simpa [meldsTiles, List.foldr_append] using aux history (meldTiles meld)
+
+lemma applyStandardChoice_used_eq_historyTiles
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hstate : state.used = stateHistoryTiles state) :
+    (applyStandardChoice hand state choice hvalid).used =
+      stateHistoryTiles (applyStandardChoice hand state choice hvalid) := by
+  cases choice with
+  | skip =>
+      simpa [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+        taatsuHistoryTiles, choiceTiles] using hstate
+  | pair tile =>
+      have hpair : state.pair.isNone := by
+        simpa [choiceUsesPair] using hvalid.2.2.2
+      cases hstatePair : state.pair with
+      | none =>
+          simp only [applyStandardChoice]
+          change state.used + pairTiles tile = _
+          rw [hstate]
+          simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+            taatsuHistoryTiles, choiceTiles, hstatePair]
+          ac_rfl
+      | some oldPair =>
+          simp [hstatePair] at hpair
+  | taatsu taatsu =>
+      simp only [applyStandardChoice]
+      change state.used + taatsuTiles taatsu = _
+      rw [hstate]
+      simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+        taatsuHistoryTiles, choiceTiles, List.reverse_cons,
+        taatsuHistoryTiles_append_single]
+      ac_rfl
+  | meld meld =>
+      simp only [applyStandardChoice]
+      change state.used + meldTiles meld = _
+      rw [hstate]
+      simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+        taatsuHistoryTiles, choiceTiles, List.reverse_cons,
+        meldsTiles_append_single]
+      ac_rfl
+
+lemma reachableWithin_used_eq_historyTiles
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) :
+    state.used = stateHistoryTiles state := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      rfl
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, rfl⟩
+      exact applyStandardChoice_used_eq_historyTiles
+        hand previous choice hvalid (ih previous hprevious)
+
+lemma applyStandardChoice_melds_eq_history_length
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hstate : state.melds = state.meldHistory.length) :
+    (applyStandardChoice hand state choice hvalid).melds =
+      (applyStandardChoice hand state choice hvalid).meldHistory.length := by
+  cases choice <;> simp [applyStandardChoice, hstate, choiceUsesMeld]
+
+lemma reachableWithin_melds_eq_history_length
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) :
+    state.melds = state.meldHistory.length := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      rfl
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, rfl⟩
+      exact applyStandardChoice_melds_eq_history_length
+        hand previous choice hvalid (ih previous hprevious)
+
+lemma applyStandardChoice_taatsu_eq_history_length
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hstate : state.taatsu = state.taatsuHistory.length) :
+    (applyStandardChoice hand state choice hvalid).taatsu =
+      (applyStandardChoice hand state choice hvalid).taatsuHistory.length := by
+  cases choice <;> simp [applyStandardChoice, hstate, choiceUsesTaatsu]
+
+lemma reachableWithin_taatsu_eq_history_length
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) :
+    state.taatsu = state.taatsuHistory.length := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      rfl
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, rfl⟩
+      exact applyStandardChoice_taatsu_eq_history_length
+        hand previous choice hvalid (ih previous hprevious)
 
 /-- States reached from a given state while processing tile kinds in order. -/
 def reachableOnTilesFrom
@@ -214,26 +348,12 @@ lemma reachableWithin_used_subset
       intro tile
       exact nextStandardState_used_subset hand previous state hnext tile
 
-lemma reachableWithin_melds_eq_history_length
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
-    (hreachable : reachableWithin hand fuel state) :
-    state.melds = state.meldHistory.length := by
-  induction fuel generalizing state with
-  | zero =>
-      subst state
-      rfl
-  | succ fuel ih =>
-      rcases hreachable with ⟨previous, hprevious, hnext⟩
-      rcases hnext with ⟨choice, _, hvalid, rfl⟩
-      have hprevious' := ih previous hprevious
-      cases choice <;> simp [applyStandardChoice, choiceUsesMeld, hprevious']
-
 lemma standardSearch_complete_iff
     (hand : Hand) (fuel : Nat) :
     StandardSearch hand fuel ↔
       ∃ state, reachableWithin hand fuel state ∧
         state.melds + hand.fixedMelds = 4 ∧
-        state.hasPair = true := by
+        state.pair.isSome := by
   rfl
 
 def standardTileAt (index : Fin 34) : Tile :=
