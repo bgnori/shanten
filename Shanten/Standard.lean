@@ -1553,6 +1553,50 @@ lemma reachableOnTilesFromWithCopyLimit_choice_then_skips
   refine ⟨final, ⟨applyStandardChoice hand state choice hvalid, hnext, htail⟩, ?_⟩
   exact hfinal
 
+lemma reachableOnTilesFromWithCopyLimit_append
+    (hand : Hand) (left right : List Tile)
+    (start middle final : StandardSearchState)
+    (hleft : reachableOnTilesFromWithCopyLimit hand left start middle)
+    (hright : reachableOnTilesFromWithCopyLimit hand right middle final) :
+    reachableOnTilesFromWithCopyLimit hand (left ++ right) start final := by
+  induction left generalizing start middle final with
+  | nil =>
+      subst start
+      exact hright
+  | cons tile left ih =>
+      rcases hleft with ⟨next, hnext, htail⟩
+      exact ⟨next, hnext,
+        ih (start := next) (middle := middle) (final := final) htail hright⟩
+
+lemma reachableOnTilesFromWithCopyLimit_insert_choice
+    (hand : Hand) (before after : List Tile) (tile : Tile)
+    (fuel : Nat) (state : StandardSearchState) (choice : StandardChoice)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state)
+    (hchoice : choice ∈ allStandardChoices)
+    (htile : tile ∈ choiceTiles choice)
+    (hvalid : ∀ middle,
+      reachableWithinWithCopyLimit hand (fuel + before.length) middle →
+        ValidStandardChoice hand middle choice)
+    (hcopy : ∀ middle hmiddle,
+      CompletionRespectsCopyLimit
+        (applyStandardChoice hand middle choice (hvalid middle hmiddle))) :
+    ∃ final,
+      reachableOnTilesFromWithCopyLimit hand
+        (before ++ tile :: after) state final ∧
+        reachableWithinWithCopyLimit hand
+          ((fuel + before.length) + 1 + after.length) final := by
+  obtain ⟨middle, hbefore, hmiddle⟩ :=
+    reachableOnTilesFromWithCopyLimit_skips
+      hand before fuel state hreachable
+  obtain ⟨final, hchosen, hfinal⟩ :=
+    reachableOnTilesFromWithCopyLimit_choice_then_skips
+      hand tile after (fuel + before.length) middle choice
+      hmiddle hchoice htile (hvalid middle hmiddle) (hcopy middle hmiddle)
+  refine ⟨final, ?_, hfinal⟩
+  exact reachableOnTilesFromWithCopyLimit_append
+    hand before (tile :: after) state middle final
+    hbefore hchosen
+
 lemma nextStandardStateWithCopyLimit_toNext
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
