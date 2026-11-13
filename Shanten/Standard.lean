@@ -1,4 +1,5 @@
 import Shanten.Specification
+import Shanten.SevenPairs
 
 namespace Shanten
 
@@ -385,6 +386,77 @@ lemma tile_mem_standardTileOrder :
 /-- A standard-form target before the fixed melds are added. -/
 def standardTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
   pairTiles pair + meldsTiles melds
+
+def standardTargetWithTaatsu
+    (pair : Tile) (melds : List Meld) (taatsus : List Taatsu) : Multiset Tile :=
+  standardTarget pair melds + taatsuHistoryTiles taatsus
+
+def standardTargetWithTaatsuOfState
+    (state : StandardSearchState) : Option (Multiset Tile) :=
+  state.pair.map fun pair =>
+    standardTargetWithTaatsu pair state.meldHistory.reverse
+      state.taatsuHistory.reverse
+
+lemma standardTargetWithTaatsuOfState_eq_some_iff
+    (state : StandardSearchState) (target : Multiset Tile) :
+    standardTargetWithTaatsuOfState state = some target ↔
+      ∃ pair, state.pair = some pair ∧
+        target = standardTargetWithTaatsu pair state.meldHistory.reverse
+          state.taatsuHistory.reverse := by
+  constructor
+  · intro htarget
+    cases hpair : state.pair with
+    | none =>
+        simp [standardTargetWithTaatsuOfState, hpair] at htarget
+    | some pair =>
+        refine ⟨pair, rfl, ?_⟩
+        simpa [standardTargetWithTaatsuOfState, hpair] using htarget.symm
+  · rintro ⟨pair, hpair, rfl⟩
+    rw [standardTargetWithTaatsuOfState, hpair]
+    rfl
+
+lemma standardTargetWithTaatsuOfState_eq_stateHistoryTiles
+    (state : StandardSearchState) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    standardTargetWithTaatsu pair state.meldHistory.reverse
+        state.taatsuHistory.reverse =
+      stateHistoryTiles state := by
+  simp [standardTargetWithTaatsu, standardTarget, stateHistoryTiles,
+    pairHistoryTiles, hpair, Multiset.add_assoc]
+
+lemma standardTargetWithTaatsu_count_le_hand
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    ∀ tile,
+      (standardTargetWithTaatsu pair state.meldHistory.reverse
+        state.taatsuHistory.reverse).count tile ≤ hand.counts tile := by
+  intro tile
+  rw [standardTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
+  rw [← reachableWithin_used_eq_historyTiles hand fuel state hreachable]
+  exact reachableWithin_used_subset hand fuel state hreachable tile
+
+lemma standardTargetExchange_handStep
+    (target : TileCounts) (before : Hand) (discarded drawn : Tile)
+    (hdrawn : target drawn > before.counts drawn)
+    (hdiscarded : before.counts discarded > target discarded)
+    (hne : discarded ≠ drawn) :
+    HandStep before (exchangeHand before discarded drawn) := by
+  apply TargetExchange.handStep
+  exact ⟨discarded, drawn, hdrawn, hdiscarded, hne, rfl⟩
+
+lemma reachesExchange_of_targetExchange
+    (target : TileCounts) (before : Hand) (discarded drawn : Tile)
+    (hdrawn : target drawn > before.counts drawn)
+    (hdiscarded : before.counts discarded > target discarded)
+    (hne : discarded ≠ drawn)
+    (hrest :
+      ReachesExchange (exchangeHand before discarded drawn) after distance) :
+    ReachesExchange before after (distance + 1) := by
+  apply ReachesExchange.step
+    (standardTargetExchange_handStep target before discarded drawn
+      hdrawn hdiscarded hne)
+  exact hrest
 
 def standardTargetOfState
     (state : StandardSearchState) : Option (Multiset Tile) :=
