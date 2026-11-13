@@ -1602,6 +1602,7 @@ inductive AppliesStandardChoices (hand : Hand) :
   | nil (state : StandardSearchState) :
       AppliesStandardChoices hand state [] state
   | cons (state : StandardSearchState) (choice : StandardChoice)
+      (hchoice : choice ∈ allStandardChoices)
       (hvalid : ValidStandardChoice hand state choice)
       (final : StandardSearchState)
       (htail :
