@@ -539,6 +539,26 @@ lemma targetExchange_exists_of_equal_sum
   refine ⟨exchangeHand before discarded drawn, ?_⟩
   exact ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles, rfl⟩
 
+lemma exchangeCounts_sum
+    (before : Hand) (discarded drawn : Tile)
+    (hne : discarded ≠ drawn) (hdiscarded : before.counts discarded > 0) :
+    (∑ tile : Tile, exchangeCounts before discarded drawn tile) =
+      ∑ tile : Tile, before.counts tile := by
+  have hstep := exchangeCounts_step before discarded drawn hne hdiscarded
+  have hfun :
+      (fun tile =>
+        exchangeCounts before discarded drawn tile +
+          (if tile = discarded then 1 else 0)) =
+      (fun tile =>
+        before.counts tile + (if tile = drawn then 1 else 0)) :=
+    funext hstep
+  have hsum := congrArg (fun f : TileCounts => ∑ tile, f tile) hfun
+  have hsum' :
+      (∑ tile, exchangeCounts before discarded drawn tile) + 1 =
+        (∑ tile, before.counts tile) + 1 := by
+    simpa [Finset.sum_add_distrib, hne, Ne.symm hne] using hsum
+  omega
+
 lemma countDeficit_exchange
     (target : TileCounts) (before : Hand) (discarded drawn : Tile)
     (hdrawn : target drawn > before.counts drawn)
@@ -597,6 +617,84 @@ lemma countDeficit_exchange
   change (∑ tile : Tile, afterDeficit tile) =
     (∑ tile : Tile, deficit tile) - 1
   exact hsum
+
+def targetHand (before : Hand) (target : TileCounts) : Hand :=
+  { counts := target
+    fixedMelds := before.fixedMelds }
+
+lemma reachesExchange_targetHand_of_equal_sum
+    (before : Hand) (target : TileCounts)
+    (hsum : (∑ tile : Tile, before.counts tile) =
+      ∑ tile : Tile, target tile) :
+    ∃ distance,
+      ReachesExchange before (targetHand before target) distance := by
+  have aux : ∀ d : Nat, ∀ current : Hand,
+      (∑ tile : Tile, current.counts tile) =
+        ∑ tile : Tile, target tile →
+      countDeficit current.counts target = d →
+      ∃ distance,
+        ReachesExchange current (targetHand current target) distance := by
+    intro d
+    refine Nat.strong_induction_on d ?_
+    intro d ih current hsumCurrent hmeasure
+    by_cases hd : d = 0
+    · have hsumzero :
+          (∑ tile : Tile, (target tile - current.counts tile)) = 0 := by
+        simpa [countDeficit, hd] using hmeasure
+      have hzero :
+          ∀ tile ∈ (Finset.univ : Finset Tile),
+            target tile - current.counts tile = 0 := by
+        apply (Finset.sum_eq_zero_iff_of_nonneg
+          (fun tile _ => Nat.zero_le _)).mp
+        exact hsumzero
+      have hle : ∀ tile, target tile ≤ current.counts tile := by
+        intro tile
+        have hzeroTile := hzero tile (Finset.mem_univ tile)
+        omega
+      have heq :
+          ∀ tile ∈ (Finset.univ : Finset Tile),
+            target tile = current.counts tile := by
+        apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
+          (f := target) (g := current.counts)
+          (fun tile _ => hle tile)).mp
+        exact hsumCurrent.symm
+      have hcounts : target = current.counts := by
+        funext tile
+        exact heq tile (Finset.mem_univ tile)
+      subst hcounts
+      exact ⟨0, ReachesExchange.done⟩
+    · have hpositive : 0 < d := Nat.pos_of_ne_zero hd
+      have hne : current.counts ≠ target := by
+        intro hcounts
+        subst hcounts
+        apply hd
+        simpa [countDeficit] using hmeasure.symm
+      obtain ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles⟩ :=
+        exists_target_exchange_tiles current target hsumCurrent hne
+      let next := exchangeHand current discarded drawn
+      have hsumAfter :
+          (∑ tile : Tile, next.counts tile) =
+            ∑ tile : Tile, target tile := by
+        change (∑ tile : Tile, exchangeCounts current discarded drawn tile) =
+          ∑ tile : Tile, target tile
+        rw [exchangeCounts_sum current discarded drawn hneTiles
+          (by omega)]
+        exact hsumCurrent
+      have hdefAfter :
+          countDeficit next.counts target < d := by
+        dsimp [next]
+        rw [countDeficit_exchange target current discarded drawn
+          hdrawn hdiscarded hneTiles, hmeasure]
+        omega
+      obtain ⟨distance, hrest⟩ := ih
+        (countDeficit next.counts target) hdefAfter next
+        hsumAfter rfl
+      refine ⟨distance + 1, ?_⟩
+      apply ReachesExchange.step
+      · exact standardTargetExchange_handStep target current discarded drawn
+          hdrawn hdiscarded hneTiles
+      · simpa [next, targetHand, exchangeHand] using hrest
+  exact aux (countDeficit before.counts target) before hsum rfl
 
 /-- A target has the required number of concealed melds for a hand. -/
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
