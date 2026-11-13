@@ -148,6 +148,19 @@ def allStandardChoices : Finset StandardChoice :=
       Finset.univ.image (fun taatsu =>
         StandardChoice.taatsu taatsu))
 
+lemma standardChoice_mem_all
+    (choice : StandardChoice) :
+    choice ∈ allStandardChoices := by
+  cases choice with
+  | skip =>
+      simp [allStandardChoices]
+  | pair tile =>
+      simp [allStandardChoices]
+  | taatsu taatsu =>
+      simp [allStandardChoices]
+  | meld meld =>
+      simp [allStandardChoices]
+
 def choicesForTile (tile : Tile) : Finset StandardChoice :=
   allStandardChoices.filter
     (fun choice => choice = .skip ∨ tile ∈ choiceTiles choice)
@@ -1238,6 +1251,30 @@ lemma reachableWithinWithCopyLimit_taatsu_le_four
       have hbound := hvalid.2.2.1
       simp only [applyStandardChoice] at hbound ⊢
       omega
+
+lemma nextStandardStateAtWithCopyLimit_skip_of_reachable
+    (hand : Hand) (tile : Tile) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    NextStandardStateAtWithCopyLimit hand tile state
+      (applyStandardChoice hand state .skip
+        (by
+          refine ⟨?_, ?_, ?_, ?_⟩
+          · simpa [choiceTiles] using
+              reachableWithinWithCopyLimit_used_subset
+                hand fuel state hreachable
+          · simpa [choiceUsesMeld] using
+              reachableWithinWithCopyLimit_melds_le_four
+                hand fuel state hreachable
+          · simpa [choiceUsesTaatsu] using
+              reachableWithinWithCopyLimit_taatsu_le_four
+                hand fuel state hreachable
+          · simp [choiceUsesPair])) := by
+  apply nextStandardStateAtWithCopyLimit_skip
+    hand tile state
+    (reachableWithinWithCopyLimit_used_subset hand fuel state hreachable)
+    (reachableWithinWithCopyLimit_copyLimit hand fuel state hreachable)
+    (reachableWithinWithCopyLimit_melds_le_four hand fuel state hreachable)
+    (reachableWithinWithCopyLimit_taatsu_le_four hand fuel state hreachable)
 
 lemma nextStandardStateWithCopyLimit_toNext
     (hand : Hand) (state next : StandardSearchState)
