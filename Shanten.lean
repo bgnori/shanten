@@ -77,6 +77,53 @@ noncomputable def orphanKinds : Finset Tile :=
 noncomputable def orphanTiles : Multiset Tile :=
   Multiset.ofList orphanKinds.toList
 
+/-- The thirteen orphan kinds, written explicitly for computable calculations. -/
+def kokushiKinds : Finset Tile :=
+  { Tile.suited .man ⟨0, by omega⟩
+  , Tile.suited .man ⟨8, by omega⟩
+  , Tile.suited .pin ⟨0, by omega⟩
+  , Tile.suited .pin ⟨8, by omega⟩
+  , Tile.suited .sou ⟨0, by omega⟩
+  , Tile.suited .sou ⟨8, by omega⟩
+  , Tile.honor ⟨0, by omega⟩
+  , Tile.honor ⟨1, by omega⟩
+  , Tile.honor ⟨2, by omega⟩
+  , Tile.honor ⟨3, by omega⟩
+  , Tile.honor ⟨4, by omega⟩
+  , Tile.honor ⟨5, by omega⟩
+  , Tile.honor ⟨6, by omega⟩ }
+
+/-- The number of orphan kinds occurring in a hand. -/
+def kokushiDistinctCount (hand : Hand) : Nat :=
+  (kokushiKinds.filter fun tile => 0 < hand.counts tile).card
+
+/-- The number of orphan kinds occurring at least twice. -/
+def kokushiPairCount (hand : Hand) : Nat :=
+  (kokushiKinds.filter fun tile => 2 ≤ hand.counts tile).card
+
+/-- The closed-form shanten value for the thirteen-orphans shape. -/
+def kokushiShanten (hand : Hand) : Int :=
+  13 - (kokushiDistinctCount hand : Int) -
+    if 0 < kokushiPairCount hand then 1 else 0
+
+/-- The example with six middle manzu, six middle pinzu, and one 3-sou. -/
+def kokushiWorstCase : Hand :=
+  { counts := fun tile =>
+      if tile ∈ ({ Tile.suited .man ⟨1, by omega⟩
+          , Tile.suited .man ⟨2, by omega⟩
+          , Tile.suited .man ⟨3, by omega⟩
+          , Tile.suited .man ⟨4, by omega⟩
+          , Tile.suited .man ⟨5, by omega⟩
+          , Tile.suited .man ⟨6, by omega⟩
+          , Tile.suited .pin ⟨1, by omega⟩
+          , Tile.suited .pin ⟨2, by omega⟩
+          , Tile.suited .pin ⟨3, by omega⟩
+          , Tile.suited .pin ⟨4, by omega⟩
+          , Tile.suited .pin ⟨5, by omega⟩
+          , Tile.suited .pin ⟨6, by omega⟩
+          , Tile.suited .sou ⟨2, by omega⟩ } : Finset Tile) then 1 else 0
+    fixedMelds := 0 }
+
 /-- The structural hand shapes whose shanten values are considered. -/
 inductive Shape
   | standard
@@ -2205,5 +2252,16 @@ theorem thirteenOrphansShanten_le_six_of_completion_bound
     value ≤ 6 := by
   apply shapeShanten_le_six_of_completion_bound
     happlicable hbound value hvalue
+
+/-- No hand can exceed thirteen shanten for the thirteen-orphans shape. -/
+theorem kokushiShanten_le_thirteen (hand : Hand) :
+    kokushiShanten hand ≤ 13 := by
+  unfold kokushiShanten
+  split <;> omega
+
+/-- The middle-tile example has the maximum thirteen-orphans shanten value. -/
+theorem kokushiWorstCase_shanten :
+    kokushiShanten kokushiWorstCase = 13 := by
+  native_decide
 
 end Shanten
