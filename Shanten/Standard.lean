@@ -2,10 +2,18 @@ import Shanten.Specification
 
 namespace Shanten
 
+inductive Taatsu
+  | pair (tile : Tile)
+  | sequence (suit : Suit) (start : Fin 8)
+  deriving DecidableEq, Fintype
+
 /-- The counters carried by the standard-form dynamic program. -/
 structure StandardSearchState where
   tileIndex : Nat
   used : Multiset Tile
+  pair : Option Tile
+  meldHistory : List Meld
+  taatsuHistory : List Taatsu
   melds : Nat
   taatsu : Nat
   hasPair : Bool
@@ -15,14 +23,9 @@ structure StandardSearchState where
 inductive StandardChoice
   | skip
   | pair (tile : Tile)
-  | taatsu (tiles : Multiset Tile)
+  | taatsu (taatsu : Taatsu)
   | meld (meld : Meld)
   deriving DecidableEq
-
-inductive Taatsu
-  | pair (tile : Tile)
-  | sequence (suit : Suit) (start : Fin 8)
-  deriving DecidableEq, Fintype
 
 def taatsuTiles : Taatsu → Multiset Tile
   | .pair tile => pairTiles tile
@@ -34,7 +37,7 @@ def taatsuTiles : Taatsu → Multiset Tile
 def choiceTiles : StandardChoice → Multiset Tile
   | .skip => 0
   | .pair tile => pairTiles tile
-  | .taatsu tiles => tiles
+  | .taatsu taatsu => taatsuTiles taatsu
   | .meld meld => meldTiles meld
 
 def choiceUsesMeld : StandardChoice → Bool
@@ -62,6 +65,15 @@ def applyStandardChoice
   { state with
     tileIndex := state.tileIndex + 1
     used := state.used + choiceTiles choice
+    pair := match choice with
+      | .pair tile => some tile
+      | _ => state.pair
+    meldHistory := match choice with
+      | .meld meld => meld :: state.meldHistory
+      | _ => state.meldHistory
+    taatsuHistory := match choice with
+      | .taatsu taatsu => taatsu :: state.taatsuHistory
+      | _ => state.taatsuHistory
     melds := state.melds + (if choiceUsesMeld choice = true then 1 else 0)
     taatsu := state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0)
     hasPair := state.hasPair || choiceUsesPair choice }
@@ -80,7 +92,7 @@ def allStandardChoices : Finset StandardChoice :=
     (Finset.univ.image StandardChoice.pair ∪
       Finset.univ.image StandardChoice.meld ∪
       Finset.univ.image (fun taatsu =>
-        StandardChoice.taatsu (taatsuTiles taatsu)))
+        StandardChoice.taatsu taatsu))
 
 def choicesForTile (tile : Tile) : Finset StandardChoice :=
   allStandardChoices.filter
@@ -129,6 +141,9 @@ lemma nextStandardStateAt_tileIndex
 def initialStandardState : StandardSearchState :=
   { tileIndex := 0
     used := 0
+    pair := none
+    meldHistory := []
+    taatsuHistory := []
     melds := 0
     taatsu := 0
     hasPair := false }
@@ -199,6 +214,20 @@ lemma reachableWithin_used_subset
       intro tile
       exact nextStandardState_used_subset hand previous state hnext tile
 
+lemma reachableWithin_melds_eq_history_length
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) :
+    state.melds = state.meldHistory.length := by
+  induction fuel generalizing state with
+  | zero =>
+      subst state
+      rfl
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rcases hnext with ⟨choice, _, hvalid, rfl⟩
+      have hprevious' := ih previous hprevious
+      cases choice <;> simp [applyStandardChoice, choiceUsesMeld, hprevious']
+
 lemma standardSearch_complete_iff
     (hand : Hand) (fuel : Nat) :
     StandardSearch hand fuel ↔
@@ -236,6 +265,28 @@ lemma tile_mem_standardTileOrder :
 /-- A standard-form target before the fixed melds are added. -/
 def standardTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
   pairTiles pair + meldsTiles melds
+
+def standardTargetOfState
+    (state : StandardSearchState) : Option (Multiset Tile) :=
+  state.pair.map fun pair =>
+    standardTarget pair state.meldHistory.reverse
+
+lemma standardTargetOfState_eq_some_iff
+    (state : StandardSearchState) (target : Multiset Tile) :
+    standardTargetOfState state = some target ↔
+      ∃ pair, state.pair = some pair ∧
+        target = standardTarget pair state.meldHistory.reverse := by
+  constructor
+  · intro htarget
+    cases hpair : state.pair with
+    | none =>
+        simp [standardTargetOfState, hpair] at htarget
+    | some pair =>
+        refine ⟨pair, rfl, ?_⟩
+        simpa [standardTargetOfState, hpair] using htarget.symm
+  · rintro ⟨pair, hpair, rfl⟩
+    rw [standardTargetOfState, hpair]
+    rfl
 
 /-- The number of copies of each tile still required by a target. -/
 def targetDeficit (hand : Hand) (target : Multiset Tile) : Nat :=
