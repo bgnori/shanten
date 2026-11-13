@@ -988,6 +988,13 @@ def StandardBlockDecomposition.blockChoices
     decomposition.melds.map StandardChoice.meld ++
       decomposition.taatsus.map StandardChoice.taatsu
 
+lemma StandardBlockDecomposition.blockChoices_length
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    decomposition.blockChoices.length =
+      1 + decomposition.melds.length + decomposition.taatsus.length := by
+  simp [StandardBlockDecomposition.blockChoices]
+  omega
+
 lemma StandardBlockDecomposition.blockChoices_mem_all
     {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
     ∀ choice, choice ∈ decomposition.blockChoices →
