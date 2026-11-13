@@ -90,6 +90,10 @@ def Applicable (shape : Shape) (hand : Hand) : Prop :=
   | .standard => True
   | .sevenPairs | .thirteenOrphans => hand.fixedMelds = 0
 
+/-- Every normalized tile kind occurs at most four times. -/
+def ValidCounts (hand : Hand) : Prop :=
+  ∀ tile, hand.counts tile ≤ 4
+
 /--
 A complete hand of the selected shape. A standard hand has a pair and enough
 concealed melds to make four sets together with its fixed melds. The special
@@ -97,19 +101,22 @@ shapes use their usual pair-based tile structures.
 -/
 def Complete : Shape → Hand → Prop
   | .standard, hand =>
-      ∃ pair melds,
-        melds.length + hand.fixedMelds = 4 ∧
-        HasTiles hand (pairTiles pair + meldsTiles melds)
+      ValidCounts hand ∧
+        ∃ pair melds,
+          melds.length + hand.fixedMelds = 4 ∧
+          HasTiles hand (pairTiles pair + meldsTiles melds)
   | .sevenPairs, hand =>
-      hand.fixedMelds = 0 ∧
-        ∃ pairs : Finset Tile,
-          pairs.card = 7 ∧
-          HasTiles hand
-            (pairs.toList.foldr (fun tile rest => pairTiles tile + rest) 0)
+      ValidCounts hand ∧
+        hand.fixedMelds = 0 ∧
+          ∃ pairs : Finset Tile,
+            pairs.card = 7 ∧
+            HasTiles hand
+              (pairs.toList.foldr (fun tile rest => pairTiles tile + rest) 0)
   | .thirteenOrphans, hand =>
-      hand.fixedMelds = 0 ∧
-        ∃ pair, pair ∈ orphanKinds ∧
-          HasTiles hand (orphanTiles + Multiset.replicate 1 pair)
+      ValidCounts hand ∧
+        hand.fixedMelds = 0 ∧
+          ∃ pair, pair ∈ orphanKinds ∧
+            HasTiles hand (orphanTiles + Multiset.replicate 1 pair)
 
 /--
 One improvement step either draws one tile or exchanges one standing tile for
@@ -117,13 +124,13 @@ a different kind. The number of fixed melds is unchanged.
 -/
 def HandStep (before after : Hand) : Prop :=
   before.fixedMelds = after.fixedMelds ∧
-    ((∃ drawn, ∀ tile,
-        after.counts tile =
-          before.counts tile + (if tile = drawn then 1 else 0)) ∨
+    ((∃ drawn, ValidCounts after ∧ ∀ tile,
+          after.counts tile =
+            before.counts tile + (if tile = drawn then 1 else 0)) ∨
       (∃ discarded drawn, discarded ≠ drawn ∧ before.counts discarded > 0 ∧
-        ∀ tile,
-          after.counts tile + (if tile = discarded then 1 else 0) =
-            before.counts tile + (if tile = drawn then 1 else 0)))
+          ∀ tile,
+            after.counts tile + (if tile = discarded then 1 else 0) =
+              before.counts tile + (if tile = drawn then 1 else 0)))
 
 /-- Reaching a complete hand in exactly `distance` improvement steps. -/
 inductive ReachesCompletion (complete : Shape → Hand → Prop) (shape : Shape) :
@@ -290,7 +297,7 @@ lemma exists_surplus_tile_kind
 def IsThirteenTileHand (hand : Hand) : Prop :=
  hand.fixedMelds = 0 ∧
    tileCount hand = 13 ∧
-   ∀ tile, hand.counts tile ≤ 4
+   ValidCounts hand
 
 
 
@@ -490,7 +497,10 @@ lemma complete_sevenPairs_of_counts
     (hcounts : ∀ tile, hand.counts tile =
       sevenPairsCompleteCounts pairs tile) :
     Complete .sevenPairs hand := by
-  refine ⟨hfixed, pairs, hpairs, ?_⟩
+  refine ⟨?_, hfixed, pairs, hpairs, ?_⟩
+  · intro tile
+    rw [hcounts, sevenPairsCompleteCounts]
+    split <;> omega
   intro tile
   rw [hcounts, sevenPairsCompleteCounts,
     multiset_count_fold_pairTiles]
@@ -520,7 +530,10 @@ lemma reachesCompletion_sevenPairs_one_draw
     · exact hcompletedCounts
   apply ReachesCompletion.step ?_ (.done hcomplete)
   refine ⟨rfl, ?_⟩
-  refine Or.inl ⟨single, ?_⟩
+  refine Or.inl ⟨single, ?_, ?_⟩
+  · intro tile
+    dsimp [completed, sevenPairsCompleteCounts]
+    split <;> omega
   intro tile
   dsimp [completed, sevenPairsCompleteCounts]
   by_cases htilePair : tile ∈ pairs
@@ -613,6 +626,31 @@ lemma exchangeCounts_other
     (hdiscarded : tile ≠ discarded) (hdrawn : tile ≠ drawn) :
     exchangeCounts hand discarded drawn tile = hand.counts tile := by
   simp [exchangeCounts, hdiscarded, hdrawn]
+
+lemma validCounts_exchangeHand
+    (hvalid : ValidCounts hand) (hdrawn : hand.counts drawn < 4)
+    (hne : discarded ≠ drawn) (hdiscarded : hand.counts discarded > 0) :
+    ValidCounts (exchangeHand hand discarded drawn) := by
+  intro tile
+  by_cases hdrawn' : tile = drawn
+  · subst tile
+    change exchangeCounts hand discarded drawn drawn ≤ 4
+    rw [exchangeCounts_drawn]
+    · omega
+    · exact hne
+  · by_cases hdiscarded' : tile = discarded
+    · subst tile
+      change exchangeCounts hand discarded drawn discarded ≤ 4
+      rw [exchangeCounts_discarded]
+      · have hbefore := hvalid discarded
+        omega
+      · exact hne
+      · exact hdiscarded
+    · change exchangeCounts hand discarded drawn tile ≤ 4
+      rw [exchangeCounts_other]
+      · exact hvalid tile
+      · exact hdiscarded'
+      · exact hdrawn'
 
 /-- A chain consisting only of draw-and-discard exchanges. -/
 inductive ReachesExchange : Hand → Hand → Nat → Prop
