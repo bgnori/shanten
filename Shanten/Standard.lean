@@ -471,6 +471,11 @@ def StandardSearchOnTiles
   ∃ state, reachableOnTiles hand tiles state ∧
     IsStandardSearchComplete hand state
 
+def StandardBlockSearchOnTiles
+    (hand : Hand) (tiles : List Tile) : Prop :=
+  ∃ state, reachableOnTiles hand tiles state ∧
+    IsStandardBlockSearchComplete hand state
+
 lemma reachableWithin_zero_iff
     (hand : Hand) (state : StandardSearchState) :
     reachableWithin hand 0 state ↔ state = initialStandardState := by
@@ -1022,6 +1027,83 @@ lemma nextStandardStateAtWithCopyLimit_toNext
   rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
   exact ⟨choice, (mem_choicesForTileWithCopyLimit_iff
     hand state tile choice).mp hchoice |>.1, hvalid, rfl⟩
+
+lemma nextStandardStateAtWithCopyLimit_copyLimit
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
+    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
+    CompletionRespectsCopyLimit next := by
+  rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
+  exact hcopy
+
+def reachableOnTilesFromWithCopyLimit
+    (hand : Hand) : List Tile → StandardSearchState →
+      StandardSearchState → Prop
+  | [], start, state => state = start
+  | tile :: tiles, start, state =>
+      ∃ middle,
+        NextStandardStateAtWithCopyLimit hand tile start middle ∧
+          reachableOnTilesFromWithCopyLimit hand tiles middle state
+
+def reachableOnTilesWithCopyLimit
+    (hand : Hand) (tiles : List Tile) (state : StandardSearchState) : Prop :=
+  reachableOnTilesFromWithCopyLimit hand tiles initialStandardState state
+
+def StandardBlockSearchOnTilesWithCopyLimit
+    (hand : Hand) (tiles : List Tile) : Prop :=
+  ∃ state, reachableOnTilesWithCopyLimit hand tiles state ∧
+    IsStandardBlockSearchComplete hand state
+
+def StandardBlockSearchOnTileOrderWithCopyLimit (hand : Hand) : Prop :=
+  StandardBlockSearchOnTilesWithCopyLimit hand standardTileOrder
+
+lemma reachableOnTilesFromWithCopyLimit_to_reachableOnTilesFrom
+    (hand : Hand) (tiles : List Tile) (start state : StandardSearchState)
+    (hreachable : reachableOnTilesFromWithCopyLimit
+      hand tiles start state) :
+    reachableOnTilesFrom hand tiles start state := by
+  induction tiles generalizing start state with
+  | nil =>
+      exact hreachable
+  | cons tile tiles ih =>
+      rcases hreachable with ⟨middle, hnext, hrest⟩
+      exact ⟨middle, nextStandardStateAtWithCopyLimit_toNext
+        hand tile start middle hnext, ih middle state hrest⟩
+
+lemma standardBlockSearchOnTilesWithCopyLimit_to_standardBlockSearchOnTiles
+    (hand : Hand) (tiles : List Tile)
+    (hsearch : StandardBlockSearchOnTilesWithCopyLimit hand tiles) :
+    StandardBlockSearchOnTiles hand tiles := by
+  rcases hsearch with ⟨state, hreachable, hcomplete⟩
+  exact ⟨state,
+    reachableOnTilesFromWithCopyLimit_to_reachableOnTilesFrom
+      hand tiles initialStandardState state hreachable, hcomplete⟩
+
+lemma reachableOnTilesWithCopyLimit_copyLimit
+    (hand : Hand) (tiles : List Tile) (state : StandardSearchState)
+    (hreachable : reachableOnTilesWithCopyLimit hand tiles state) :
+    CompletionRespectsCopyLimit state := by
+  have hinitial : CompletionRespectsCopyLimit initialStandardState := by
+    intro tile
+    simp [CompletionRespectsCopyLimit, initialStandardState,
+      taatsuCompletionTiles]
+  have aux :
+      ∀ (tiles : List Tile) (start state : StandardSearchState),
+        CompletionRespectsCopyLimit start →
+        reachableOnTilesFromWithCopyLimit hand tiles start state →
+        CompletionRespectsCopyLimit state := by
+    intro remaining
+    induction remaining with
+    | nil =>
+        intro start state hstart hreach
+        subst state
+        exact hstart
+    | cons tile remaining ih =>
+        intro start state hstart hreach
+        rcases hreach with ⟨middle, hnext, hrest⟩
+        exact ih middle state
+          (nextStandardStateAtWithCopyLimit_copyLimit
+            hand tile start middle hnext) hrest
+  exact aux tiles initialStandardState state hinitial hreachable
 
 lemma nextStandardStateWithCopyLimit_copyLimit
     (hand : Hand) (state next : StandardSearchState)
