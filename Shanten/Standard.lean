@@ -1308,6 +1308,68 @@ lemma nextStandardStateAtWithCopyLimit_skip_of_reachable
     (reachableWithinWithCopyLimit_melds_le_four hand fuel state hreachable)
     (reachableWithinWithCopyLimit_taatsu_le_four hand fuel state hreachable)
 
+lemma reachableOnTilesFromWithCopyLimit_skips
+    (hand : Hand) (tiles : List Tile) (fuel : Nat)
+    (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    ∃ final,
+      reachableOnTilesFromWithCopyLimit hand tiles state final ∧
+        reachableWithinWithCopyLimit hand (fuel + tiles.length) final := by
+  induction tiles generalizing fuel state with
+  | nil =>
+      exact ⟨state, rfl, by simpa using hreachable⟩
+  | cons tile tiles ih =>
+      let hvalid : ValidStandardChoice hand state .skip := by
+        refine ⟨?_, ?_, ?_, ?_⟩
+        · simpa [choiceTiles] using
+            reachableWithinWithCopyLimit_used_subset
+              hand fuel state hreachable
+        · simpa [choiceUsesMeld] using
+            reachableWithinWithCopyLimit_melds_le_four
+              hand fuel state hreachable
+        · simpa [choiceUsesTaatsu] using
+            reachableWithinWithCopyLimit_taatsu_le_four
+              hand fuel state hreachable
+        · simp [choiceUsesPair]
+      have hstatecopy :
+          CompletionRespectsCopyLimit state :=
+        reachableWithinWithCopyLimit_copyLimit
+          hand fuel state hreachable
+      have hcopy :
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state .skip hvalid) := by
+        intro tile
+        dsimp [applyStandardChoice]
+        simp only [choiceTiles, Multiset.add_zero]
+        exact hstatecopy tile
+      have hskip :
+          NextStandardStateAtWithCopyLimit hand tile state
+            (applyStandardChoice hand state .skip hvalid) := by
+        refine ⟨.skip, ?_, hvalid, ?_, rfl⟩
+        · apply (mem_choicesForTileWithCopyLimit_iff
+            hand state tile .skip).mpr
+          exact ⟨by simp [choicesForTile, allStandardChoices],
+            ⟨hvalid, hcopy⟩⟩
+        · exact hcopy
+      have hreachableNext :
+          reachableWithinWithCopyLimit hand (fuel + 1)
+            (applyStandardChoice hand state .skip hvalid) := by
+        exact ⟨state, hreachable,
+          nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
+            hand tile state
+            (applyStandardChoice hand state .skip hvalid) hskip⟩
+      obtain ⟨final, hpath, hfinal⟩ :=
+        ih (fuel + 1)
+          (applyStandardChoice hand state .skip hvalid) hreachableNext
+      refine ⟨final, ?_, ?_⟩
+      · exact ⟨applyStandardChoice hand state .skip hvalid, hskip, hpath⟩
+      · have hlength :
+            fuel + (tile :: tiles).length = fuel + 1 + tiles.length := by
+          simp only [List.length_cons]
+          omega
+        rw [hlength]
+        exact hfinal
+
 lemma nextStandardStateWithCopyLimit_toNext
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
