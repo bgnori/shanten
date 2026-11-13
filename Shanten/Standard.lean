@@ -1021,4 +1021,27 @@ lemma completedMeldsForState_hasMeldCount
   rw [completedMeldsForState_length, ← hmelds, ← htaatsu]
   omega
 
+lemma complete_standard_of_blockSearch
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcomplete : IsStandardBlockSearchComplete before state)
+    (hvalid : ∀ pair, state.pair = some pair →
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (completedTargetForState state pair)))) :
+    ∃ pair,
+      Complete .standard
+        (targetHand before
+          (countsOfTiles (completedTargetForState state pair))) := by
+  rcases hcomplete with ⟨hcount, hpair⟩
+  cases hstatePair : state.pair with
+  | none =>
+      simp [hstatePair] at hpair
+  | some pair =>
+      refine ⟨pair, ?_⟩
+      apply complete_standard_completedTarget before state pair
+      · exact hvalid pair hstatePair
+      · exact completedMeldsForState_hasMeldCount
+          before fuel state hreachable hcount
+
 end Shanten
