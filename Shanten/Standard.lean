@@ -113,6 +113,18 @@ def ValidStandardChoice
   state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0) ≤ 4 ∧
   (state.pair.isNone ∨ choiceUsesPair choice = false)
 
+lemma validStandardChoice_of
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hused :
+      ∀ tile, (state.used + choiceTiles choice).count tile ≤ hand.counts tile)
+    (hmelds :
+      state.melds + (if choiceUsesMeld choice = true then 1 else 0) ≤ 4)
+    (htaatsu :
+      state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0) ≤ 4)
+    (hpair : state.pair.isNone ∨ choiceUsesPair choice = false) :
+    ValidStandardChoice hand state choice :=
+  ⟨hused, hmelds, htaatsu, hpair⟩
+
 def applyStandardChoice
     (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
     (_ : ValidStandardChoice hand state choice) : StandardSearchState :=
