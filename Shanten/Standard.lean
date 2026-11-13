@@ -1820,6 +1820,28 @@ lemma standardTargetDistance_exchange
     (countsOfTiles (standardTarget pair melds))
     hand discarded drawn hdrawn hdiscarded hne
 
+lemma exists_standardTarget_exchange
+    (hand : Hand) (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, hand.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hne :
+      hand.counts ≠ countsOfTiles (standardTarget pair melds)) :
+    ∃ discarded drawn,
+      (standardTarget pair melds).count drawn > hand.counts drawn ∧
+      hand.counts discarded >
+        (standardTarget pair melds).count discarded ∧
+      discarded ≠ drawn ∧
+      standardTargetDistance
+          (exchangeHand hand discarded drawn) pair melds =
+        standardTargetDistance hand pair melds - 1 := by
+  obtain ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles⟩ :=
+    exists_target_exchange_tiles hand
+      (countsOfTiles (standardTarget pair melds)) hsum hne
+  refine ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles, ?_⟩
+  exact standardTargetDistance_exchange
+    hand pair melds discarded drawn hdrawn hdiscarded hneTiles
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
