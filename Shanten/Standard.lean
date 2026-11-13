@@ -489,6 +489,56 @@ lemma standardTargetOfState_eq_some_iff
 def targetDeficit (hand : Hand) (target : Multiset Tile) : Nat :=
   ∑ tile : Tile, (target.count tile - hand.counts tile)
 
+lemma exists_lt_of_sum_eq_of_ne
+    (current target : TileCounts)
+    (hsum : (∑ tile : Tile, current tile) =
+      ∑ tile : Tile, target tile)
+    (hne : current ≠ target) :
+    ∃ tile, current tile < target tile := by
+  by_contra hexists
+  push_neg at hexists
+  have hle : ∀ tile, target tile ≤ current tile := by
+    intro tile
+    exact hexists tile
+  have heq :
+      ∀ tile ∈ (Finset.univ : Finset Tile), target tile = current tile := by
+    apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
+      (f := target) (g := current) (fun tile _ => hle tile)).mp
+    exact hsum.symm
+  apply hne
+  funext tile
+  exact (heq tile (Finset.mem_univ tile)).symm
+
+lemma exists_target_exchange_tiles
+    (before : Hand) (target : TileCounts)
+    (hsum : (∑ tile : Tile, before.counts tile) =
+      ∑ tile : Tile, target tile)
+    (hne : before.counts ≠ target) :
+    ∃ discarded drawn,
+      target drawn > before.counts drawn ∧
+      before.counts discarded > target discarded ∧
+      discarded ≠ drawn := by
+  obtain ⟨drawn, hdrawn⟩ :=
+    exists_lt_of_sum_eq_of_ne before.counts target hsum hne
+  obtain ⟨discarded, hdiscarded⟩ :=
+    exists_lt_of_sum_eq_of_ne target before.counts hsum.symm
+      (Ne.symm hne)
+  refine ⟨discarded, drawn, hdrawn, hdiscarded, ?_⟩
+  intro heq
+  subst discarded
+  omega
+
+lemma targetExchange_exists_of_equal_sum
+    (before : Hand) (target : TileCounts)
+    (hsum : (∑ tile : Tile, before.counts tile) =
+      ∑ tile : Tile, target tile)
+    (hne : before.counts ≠ target) :
+    ∃ after, TargetExchange target before after := by
+  obtain ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles⟩ :=
+    exists_target_exchange_tiles before target hsum hne
+  refine ⟨exchangeHand before discarded drawn, ?_⟩
+  exact ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles, rfl⟩
+
 lemma countDeficit_exchange
     (target : TileCounts) (before : Hand) (discarded drawn : Tile)
     (hdrawn : target drawn > before.counts drawn)
