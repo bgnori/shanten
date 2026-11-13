@@ -926,6 +926,51 @@ def completedTargetForState (state : StandardSearchState) (pair : Tile) :
     Multiset Tile :=
   pairTiles pair + meldsTiles (completedMeldsForState state)
 
+def CompletionRespectsCopyLimit
+    (before : Hand) (state : StandardSearchState) : Prop :=
+  ∀ tile,
+    (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤
+      before.counts tile ∧
+    (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤ 4
+
+lemma completedTargetForState_eq_used_add_completion
+    (state : StandardSearchState) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    completedTargetForState state pair =
+      stateHistoryTiles state +
+        taatsuCompletionTiles state.taatsuHistory.reverse := by
+  rw [completedTargetForState, completedMeldsForState_tiles state pair hpair]
+  rw [standardTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
+
+lemma validCounts_completedTarget_of_copyLimit
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcopy : CompletionRespectsCopyLimit before state)
+    (pair : Tile) (hpair : state.pair = some pair) :
+    ValidCounts
+      (targetHand before
+        (countsOfTiles (completedTargetForState state pair))) := by
+  intro tile
+  have htarget := hcopy tile
+  change (completedTargetForState state pair).count tile ≤ 4
+  rw [completedTargetForState_eq_used_add_completion state pair hpair]
+  rw [← reachableWithin_used_eq_historyTiles before fuel state hreachable]
+  exact htarget.2
+
+lemma hasTiles_completedTarget_of_copyLimit
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcopy : CompletionRespectsCopyLimit before state)
+    (pair : Tile) (hpair : state.pair = some pair) :
+    ∀ tile,
+      (completedTargetForState state pair).count tile ≤ before.counts tile := by
+  intro tile
+  have htarget := hcopy tile
+  change (completedTargetForState state pair).count tile ≤ before.counts tile
+  rw [completedTargetForState_eq_used_add_completion state pair hpair]
+  rw [← reachableWithin_used_eq_historyTiles before fuel state hreachable]
+  exact htarget.1
+
 lemma completedMeldsForState_card (state : StandardSearchState) :
     (meldsTiles (completedMeldsForState state)).card =
       3 * (state.meldHistory.length + state.taatsuHistory.length) := by
@@ -971,6 +1016,33 @@ lemma completedTargetForState_sum_eq_tileCount
   rw [completedTargetForState_sum_of_blockCount
     before fuel state hreachable hcount pair]
   exact hstanding.symm
+
+lemma completedTarget_counts_eq_before_of_copyLimit
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcopy : CompletionRespectsCopyLimit before state)
+    (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
+    (hstanding : tileCount before = 14 - 3 * before.fixedMelds)
+    (pair : Tile) (hpair : state.pair = some pair) :
+    ∀ tile,
+      countsOfTiles (completedTargetForState state pair) tile =
+        before.counts tile := by
+  have hle : ∀ tile,
+      (completedTargetForState state pair).count tile ≤ before.counts tile :=
+    hasTiles_completedTarget_of_copyLimit before fuel state hreachable
+      hcopy pair hpair
+  have hsum :
+      (∑ tile : Tile,
+        countsOfTiles (completedTargetForState state pair) tile) =
+        ∑ tile : Tile, before.counts tile := by
+    simpa [tileCount] using
+      (completedTargetForState_sum_eq_tileCount
+        before fuel state hreachable hcount hstanding pair)
+  intro tile
+  exact (Finset.sum_eq_sum_iff_of_le
+    (s := Finset.univ)
+    (fun tile _ => hle tile)).mp hsum
+    tile (Finset.mem_univ tile)
 
 lemma complete_standard_completedTarget
     (before : Hand) (state : StandardSearchState) (pair : Tile)
