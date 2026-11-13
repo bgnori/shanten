@@ -1861,6 +1861,60 @@ lemma reachesCompletion_standard_of_standardTarget
   exact targetHand_hasTiles_countsOfTiles before
     (standardTarget pair melds)
 
+lemma complete_standard_of_standardTarget_distance_zero
+    (before : Hand) (pair : Tile) (melds : List Meld)
+    (hdistance : standardTargetDistance before pair melds = 0)
+    (hsum :
+      (∑ tile : Tile, before.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hvalid :
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))))
+    (hmelds : melds.length + before.fixedMelds = 4) :
+    Complete .standard before := by
+  have hdeficit :
+      countDeficit before.counts
+        (countsOfTiles (standardTarget pair melds)) = 0 := by
+    rw [← standardTargetDistance_eq_countDeficit]
+    exact hdistance
+  have hzero :
+      ∀ tile ∈ (Finset.univ : Finset Tile),
+        (countsOfTiles (standardTarget pair melds)) tile -
+            before.counts tile = 0 := by
+    apply (Finset.sum_eq_zero_iff_of_nonneg
+      (fun tile _ => Nat.zero_le _)).mp
+    exact hdeficit
+  have hle :
+      ∀ tile, (countsOfTiles (standardTarget pair melds)) tile ≤
+        before.counts tile := by
+    intro tile
+    have hzeroTile := hzero tile (Finset.mem_univ tile)
+    omega
+  have heq :
+      ∀ tile ∈ (Finset.univ : Finset Tile),
+        (countsOfTiles (standardTarget pair melds)) tile =
+          before.counts tile := by
+    apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
+      (f := countsOfTiles (standardTarget pair melds))
+      (g := before.counts)
+      (fun tile _ => hle tile)).mp
+    exact hsum.symm
+  have hcounts :
+      countsOfTiles (standardTarget pair melds) = before.counts := by
+    funext tile
+    exact heq tile (Finset.mem_univ tile)
+  have hcomplete :
+      Complete .standard
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))) := by
+    exact complete_standard_targetHand before
+      (countsOfTiles (standardTarget pair melds)) pair melds
+      hvalid hmelds
+      (targetHand_hasTiles_countsOfTiles before
+        (standardTarget pair melds))
+  simpa [targetHand, hcounts] using hcomplete
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
