@@ -980,6 +980,26 @@ lemma reachableWithinWithCopyLimit_copyLimit
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       exact nextStandardStateWithCopyLimit_copyLimit hand previous state hnext
 
+lemma nextStandardStateWithCopyLimit_toNext
+    (hand : Hand) (state next : StandardSearchState)
+    (hnext : NextStandardStateWithCopyLimit hand state next) :
+    NextStandardState hand state next := by
+  rcases hnext with ⟨choice, hchoice, hvalid, _, rfl⟩
+  exact ⟨choice, hchoice, hvalid, rfl⟩
+
+lemma reachableWithinWithCopyLimit_to_reachableWithin
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    reachableWithin hand fuel state := by
+  induction fuel generalizing state with
+  | zero =>
+      exact hreachable
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      rw [reachableWithin_succ_iff]
+      exact ⟨previous, ih previous hprevious,
+        nextStandardStateWithCopyLimit_toNext hand previous state hnext⟩
+
 lemma completedTargetForState_eq_used_add_completion
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
@@ -1233,5 +1253,20 @@ lemma complete_standard_of_blockSearch_of_copyLimit
           before fuel state hreachable hcopy pair hstatePair
       · exact completedMeldsForState_hasMeldCount
           before fuel state hreachable hcount
+
+lemma complete_standard_of_constrainedBlockSearch
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit before fuel state)
+    (hcomplete : IsStandardBlockSearchComplete before state) :
+    ∃ pair,
+      Complete .standard
+        (targetHand before
+          (countsOfTiles (completedTargetForState state pair))) := by
+  exact complete_standard_of_blockSearch_of_copyLimit
+    before fuel state
+    (reachableWithinWithCopyLimit_to_reachableWithin
+      before fuel state hreachable)
+    hcomplete
+    (reachableWithinWithCopyLimit_copyLimit before fuel state hreachable)
 
 end Shanten
