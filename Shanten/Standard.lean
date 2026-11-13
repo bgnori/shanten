@@ -214,11 +214,22 @@ def IsStandardSearchComplete
     (hand : Hand) (state : StandardSearchState) : Prop :=
   state.melds + hand.fixedMelds = 4 ∧ state.pair.isSome
 
+/-- A DP state containing four meld-or-taatsu blocks and one pair. -/
+def IsStandardBlockSearchComplete
+    (hand : Hand) (state : StandardSearchState) : Prop :=
+  state.melds + state.taatsu + hand.fixedMelds = 4 ∧ state.pair.isSome
+
 /-- The DP query: a complete standard decomposition is reachable in `fuel` choices. -/
 def StandardSearch
     (hand : Hand) (fuel : Nat) : Prop :=
   ∃ state, reachableWithin hand fuel state ∧
     IsStandardSearchComplete hand state
+
+/-- The DP query using the four-block criterion. -/
+def StandardBlockSearch
+    (hand : Hand) (fuel : Nat) : Prop :=
+  ∃ state, reachableWithin hand fuel state ∧
+    IsStandardBlockSearchComplete hand state
 
 def pairHistoryTiles (pair : Option Tile) : Multiset Tile :=
   pair.elim 0 pairTiles
@@ -489,6 +500,14 @@ lemma standardSearch_complete_iff
       ∃ state, reachableWithin hand fuel state ∧
         state.melds + hand.fixedMelds = 4 ∧
         state.pair.isSome := by
+  rfl
+
+lemma standardBlockSearch_complete_iff
+    (hand : Hand) (fuel : Nat) :
+    StandardBlockSearch hand fuel ↔
+        ∃ state, reachableWithin hand fuel state ∧
+          state.melds + state.taatsu + hand.fixedMelds = 4 ∧
+          state.pair.isSome := by
   rfl
 
 def standardTileAt (index : Fin 34) : Tile :=
