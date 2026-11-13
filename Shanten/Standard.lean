@@ -933,6 +933,53 @@ def CompletionRespectsCopyLimit
       before.counts tile ∧
     (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤ 4
 
+def ValidStandardChoiceWithCopyLimit
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) : Prop :=
+  ∃ hvalid : ValidStandardChoice hand state choice,
+    CompletionRespectsCopyLimit hand
+      (applyStandardChoice hand state choice hvalid)
+
+def NextStandardStateWithCopyLimit
+    (hand : Hand) (state next : StandardSearchState) : Prop :=
+  ∃ choice, choice ∈ allStandardChoices ∧
+    ∃ hvalid : ValidStandardChoice hand state choice,
+      CompletionRespectsCopyLimit hand
+        (applyStandardChoice hand state choice hvalid) ∧
+      next = applyStandardChoice hand state choice hvalid
+
+lemma nextStandardStateWithCopyLimit_copyLimit
+    (hand : Hand) (state next : StandardSearchState)
+    (hnext : NextStandardStateWithCopyLimit hand state next) :
+    CompletionRespectsCopyLimit hand next := by
+  rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
+  exact hcopy
+
+def reachableWithinWithCopyLimit
+    (hand : Hand) : Nat → StandardSearchState → Prop
+  | 0, state => state = initialStandardState
+  | fuel + 1, state =>
+      ∃ previous,
+        reachableWithinWithCopyLimit hand fuel previous ∧
+        NextStandardStateWithCopyLimit hand previous state
+
+lemma initialStandardState_copyLimit (hand : Hand) :
+    CompletionRespectsCopyLimit hand initialStandardState := by
+  intro tile
+  simp [CompletionRespectsCopyLimit, initialStandardState,
+    taatsuCompletionTiles]
+
+lemma reachableWithinWithCopyLimit_copyLimit
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit hand fuel state) :
+    CompletionRespectsCopyLimit hand state := by
+  induction fuel generalizing state with
+  | zero =>
+      rw [hreachable]
+      exact initialStandardState_copyLimit hand
+  | succ fuel ih =>
+      rcases hreachable with ⟨previous, hprevious, hnext⟩
+      exact nextStandardStateWithCopyLimit_copyLimit hand previous state hnext
+
 lemma completedTargetForState_eq_used_add_completion
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
