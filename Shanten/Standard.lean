@@ -926,31 +926,28 @@ def completedTargetForState (state : StandardSearchState) (pair : Tile) :
     Multiset Tile :=
   pairTiles pair + meldsTiles (completedMeldsForState state)
 
-def CompletionRespectsCopyLimit
-    (before : Hand) (state : StandardSearchState) : Prop :=
+def CompletionRespectsCopyLimit (state : StandardSearchState) : Prop :=
   ∀ tile,
-    (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤
-      before.counts tile ∧
     (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤ 4
 
 def ValidStandardChoiceWithCopyLimit
     (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) : Prop :=
   ∃ hvalid : ValidStandardChoice hand state choice,
-    CompletionRespectsCopyLimit hand
+    CompletionRespectsCopyLimit
       (applyStandardChoice hand state choice hvalid)
 
 def NextStandardStateWithCopyLimit
     (hand : Hand) (state next : StandardSearchState) : Prop :=
   ∃ choice, choice ∈ allStandardChoices ∧
     ∃ hvalid : ValidStandardChoice hand state choice,
-      CompletionRespectsCopyLimit hand
+      CompletionRespectsCopyLimit
         (applyStandardChoice hand state choice hvalid) ∧
       next = applyStandardChoice hand state choice hvalid
 
 lemma nextStandardStateWithCopyLimit_copyLimit
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
-    CompletionRespectsCopyLimit hand next := by
+    CompletionRespectsCopyLimit next := by
   rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
   exact hcopy
 
@@ -962,8 +959,8 @@ def reachableWithinWithCopyLimit
         reachableWithinWithCopyLimit hand fuel previous ∧
         NextStandardStateWithCopyLimit hand previous state
 
-lemma initialStandardState_copyLimit (hand : Hand) :
-    CompletionRespectsCopyLimit hand initialStandardState := by
+lemma initialStandardState_copyLimit :
+    CompletionRespectsCopyLimit initialStandardState := by
   intro tile
   simp [CompletionRespectsCopyLimit, initialStandardState,
     taatsuCompletionTiles]
@@ -971,11 +968,11 @@ lemma initialStandardState_copyLimit (hand : Hand) :
 lemma reachableWithinWithCopyLimit_copyLimit
     (hand : Hand) (fuel : Nat) (state : StandardSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
-    CompletionRespectsCopyLimit hand state := by
+    CompletionRespectsCopyLimit state := by
   induction fuel generalizing state with
   | zero =>
       rw [hreachable]
-      exact initialStandardState_copyLimit hand
+      exact initialStandardState_copyLimit
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       exact nextStandardStateWithCopyLimit_copyLimit hand previous state hnext
@@ -1012,7 +1009,7 @@ lemma completedTargetForState_eq_used_add_completion
 lemma validCounts_completedTarget_of_copyLimit
     (before : Hand) (fuel : Nat) (state : StandardSearchState)
     (hreachable : reachableWithin before fuel state)
-    (hcopy : CompletionRespectsCopyLimit before state)
+    (hcopy : CompletionRespectsCopyLimit state)
     (pair : Tile) (hpair : state.pair = some pair) :
     ValidCounts
       (targetHand before
@@ -1022,21 +1019,7 @@ lemma validCounts_completedTarget_of_copyLimit
   change (completedTargetForState state pair).count tile ≤ 4
   rw [completedTargetForState_eq_used_add_completion state pair hpair]
   rw [← reachableWithin_used_eq_historyTiles before fuel state hreachable]
-  exact htarget.2
-
-lemma hasTiles_completedTarget_of_copyLimit
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
-    (hreachable : reachableWithin before fuel state)
-    (hcopy : CompletionRespectsCopyLimit before state)
-    (pair : Tile) (hpair : state.pair = some pair) :
-    ∀ tile,
-      (completedTargetForState state pair).count tile ≤ before.counts tile := by
-  intro tile
-  have htarget := hcopy tile
-  change (completedTargetForState state pair).count tile ≤ before.counts tile
-  rw [completedTargetForState_eq_used_add_completion state pair hpair]
-  rw [← reachableWithin_used_eq_historyTiles before fuel state hreachable]
-  exact htarget.1
+  exact htarget
 
 lemma completedMeldsForState_card (state : StandardSearchState) :
     (meldsTiles (completedMeldsForState state)).card =
@@ -1083,33 +1066,6 @@ lemma completedTargetForState_sum_eq_tileCount
   rw [completedTargetForState_sum_of_blockCount
     before fuel state hreachable hcount pair]
   exact hstanding.symm
-
-lemma completedTarget_counts_eq_before_of_copyLimit
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
-    (hreachable : reachableWithin before fuel state)
-    (hcopy : CompletionRespectsCopyLimit before state)
-    (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
-    (hstanding : tileCount before = 14 - 3 * before.fixedMelds)
-    (pair : Tile) (hpair : state.pair = some pair) :
-    ∀ tile,
-      countsOfTiles (completedTargetForState state pair) tile =
-        before.counts tile := by
-  have hle : ∀ tile,
-      (completedTargetForState state pair).count tile ≤ before.counts tile :=
-    hasTiles_completedTarget_of_copyLimit before fuel state hreachable
-      hcopy pair hpair
-  have hsum :
-      (∑ tile : Tile,
-        countsOfTiles (completedTargetForState state pair) tile) =
-        ∑ tile : Tile, before.counts tile := by
-    simpa [tileCount] using
-      (completedTargetForState_sum_eq_tileCount
-        before fuel state hreachable hcount hstanding pair)
-  intro tile
-  exact (Finset.sum_eq_sum_iff_of_le
-    (s := Finset.univ)
-    (fun tile _ => hle tile)).mp hsum
-    tile (Finset.mem_univ tile)
 
 lemma complete_standard_completedTarget
     (before : Hand) (state : StandardSearchState) (pair : Tile)
@@ -1237,7 +1193,7 @@ lemma complete_standard_of_blockSearch_of_copyLimit
     (before : Hand) (fuel : Nat) (state : StandardSearchState)
     (hreachable : reachableWithin before fuel state)
     (hcomplete : IsStandardBlockSearchComplete before state)
-    (hcopy : CompletionRespectsCopyLimit before state) :
+    (hcopy : CompletionRespectsCopyLimit state) :
     ∃ pair,
       Complete .standard
         (targetHand before
