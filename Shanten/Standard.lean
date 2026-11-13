@@ -282,6 +282,10 @@ lemma taatsuCompletionTiles_card (taatsus : List Taatsu) :
   | cons taatsu taatsus ih =>
       simp [taatsuCompletionTiles, ih]
 
+lemma pairTiles_card (tile : Tile) :
+    (pairTiles tile).card = 2 := by
+  simp [pairTiles]
+
 lemma meldTiles_card (meld : Meld) : (meldTiles meld).card = 3 := by
   cases meld <;> simp [meldTiles]
 
@@ -921,6 +925,52 @@ def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
 def completedTargetForState (state : StandardSearchState) (pair : Tile) :
     Multiset Tile :=
   pairTiles pair + meldsTiles (completedMeldsForState state)
+
+lemma completedMeldsForState_card (state : StandardSearchState) :
+    (meldsTiles (completedMeldsForState state)).card =
+      3 * (state.meldHistory.length + state.taatsuHistory.length) := by
+  rw [meldsTiles_card, completedMeldsForState_length]
+
+lemma completedTargetForState_card
+    (state : StandardSearchState) (pair : Tile) :
+    (completedTargetForState state pair).card =
+      2 + 3 * (state.meldHistory.length + state.taatsuHistory.length) := by
+  unfold completedTargetForState
+  rw [Multiset.card_add, pairTiles_card, completedMeldsForState_card]
+
+lemma completedTargetForState_sum
+    (state : StandardSearchState) (pair : Tile) :
+    (∑ tile : Tile, countsOfTiles (completedTargetForState state pair) tile) =
+      2 + 3 * (state.meldHistory.length + state.taatsuHistory.length) := by
+  rw [countsOfTiles_sum_eq_card, completedTargetForState_card]
+
+lemma completedTargetForState_sum_of_blockCount
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
+    (pair : Tile) :
+    (∑ tile : Tile,
+      countsOfTiles (completedTargetForState state pair) tile) =
+        14 - 3 * before.fixedMelds := by
+  have hmelds := reachableWithin_melds_eq_history_length
+    before fuel state hreachable
+  have htaatsu := reachableWithin_taatsu_eq_history_length
+    before fuel state hreachable
+  rw [completedTargetForState_sum, ← hmelds, ← htaatsu]
+  omega
+
+lemma completedTargetForState_sum_eq_tileCount
+    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin before fuel state)
+    (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
+    (hstanding : tileCount before = 14 - 3 * before.fixedMelds)
+    (pair : Tile) :
+    (∑ tile : Tile,
+      countsOfTiles (completedTargetForState state pair) tile) =
+        tileCount before := by
+  rw [completedTargetForState_sum_of_blockCount
+    before fuel state hreachable hcount pair]
+  exact hstanding.symm
 
 lemma complete_standard_completedTarget
     (before : Hand) (state : StandardSearchState) (pair : Tile)
