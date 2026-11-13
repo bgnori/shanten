@@ -984,6 +984,45 @@ lemma nextStandardStateWithCopyLimit_iff
     exact ⟨choice, (Finset.mem_filter.mp hchoice).1,
       hvalid, hcopy, rfl⟩
 
+noncomputable def choicesForTileWithCopyLimit
+    (hand : Hand) (state : StandardSearchState) (tile : Tile) :
+    Finset StandardChoice :=
+  by
+    classical
+    exact (choicesForTile tile).filter
+      (fun choice =>
+        ∃ hvalid : ValidStandardChoice hand state choice,
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state choice hvalid))
+
+lemma mem_choicesForTileWithCopyLimit_iff
+    (hand : Hand) (state : StandardSearchState) (tile : Tile)
+    (choice : StandardChoice) :
+    choice ∈ choicesForTileWithCopyLimit hand state tile ↔
+      choice ∈ choicesForTile tile ∧
+        ∃ hvalid : ValidStandardChoice hand state choice,
+          CompletionRespectsCopyLimit
+            (applyStandardChoice hand state choice hvalid) := by
+  classical
+  change choice ∈ (choicesForTile tile).filter _ ↔ _
+  rw [Finset.mem_filter]
+
+def NextStandardStateAtWithCopyLimit
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState) : Prop :=
+  ∃ choice, choice ∈ choicesForTileWithCopyLimit hand state tile ∧
+    ∃ hvalid : ValidStandardChoice hand state choice,
+      CompletionRespectsCopyLimit
+        (applyStandardChoice hand state choice hvalid) ∧
+      next = applyStandardChoice hand state choice hvalid
+
+lemma nextStandardStateAtWithCopyLimit_toNext
+    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
+    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
+    NextStandardStateAt hand tile state next := by
+  rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
+  exact ⟨choice, (mem_choicesForTileWithCopyLimit_iff
+    hand state tile choice).mp hchoice |>.1, hvalid, rfl⟩
+
 lemma nextStandardStateWithCopyLimit_copyLimit
     (hand : Hand) (state next : StandardSearchState)
     (hnext : NextStandardStateWithCopyLimit hand state next) :
