@@ -428,4 +428,65 @@ def standardTargetDistance
     (hand : Hand) (pair : Tile) (melds : List Meld) : Nat :=
   targetDeficit hand (standardTarget pair melds)
 
+lemma standardTarget_count_le_stateHistoryTiles
+    (state : StandardSearchState) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    ∀ tile,
+      (standardTarget pair state.meldHistory.reverse).count tile ≤
+        (stateHistoryTiles state).count tile := by
+  intro tile
+  simp [standardTarget, stateHistoryTiles, pairHistoryTiles, hpair,
+    Multiset.count_add]
+
+lemma standardTarget_count_le_used
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    ∀ tile,
+      (standardTarget pair state.meldHistory.reverse).count tile ≤
+        state.used.count tile := by
+  intro tile
+  rw [reachableWithin_used_eq_historyTiles hand fuel state hreachable]
+  exact standardTarget_count_le_stateHistoryTiles state pair hpair tile
+
+lemma standardTarget_count_le_hand
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state) (pair : Tile)
+    (hpair : state.pair = some pair) :
+    ∀ tile,
+      (standardTarget pair state.meldHistory.reverse).count tile ≤
+        hand.counts tile := by
+  intro tile
+  exact le_trans
+    (standardTarget_count_le_used hand fuel state hreachable pair hpair tile)
+    (reachableWithin_used_subset hand fuel state hreachable tile)
+
+lemma standardTarget_hasMeldCount_of_complete
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state)
+    (hcomplete : IsStandardSearchComplete hand state) :
+    HasStandardMeldCount hand state.meldHistory.reverse := by
+  have hlength := reachableWithin_melds_eq_history_length
+    hand fuel state hreachable
+  rcases hcomplete with ⟨hmelds, _⟩
+  unfold HasStandardMeldCount
+  simpa [List.length_reverse, hlength] using hmelds
+
+lemma standardTargetOfState_exists_of_complete
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state)
+    (hcomplete : IsStandardSearchComplete hand state) :
+    ∃ target, standardTargetOfState state = some target ∧
+      HasStandardMeldCount hand state.meldHistory.reverse := by
+  cases hpair : state.pair with
+  | none =>
+      exfalso
+      simpa [hpair] using hcomplete.2
+  | some pair =>
+      refine ⟨standardTarget pair state.meldHistory.reverse, ?_, ?_⟩
+      · rw [standardTargetOfState, hpair]
+        rfl
+      · exact standardTarget_hasMeldCount_of_complete
+          hand fuel state hreachable hcomplete
+
 end Shanten
