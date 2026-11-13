@@ -489,6 +489,65 @@ lemma standardTargetOfState_eq_some_iff
 def targetDeficit (hand : Hand) (target : Multiset Tile) : Nat :=
   ∑ tile : Tile, (target.count tile - hand.counts tile)
 
+lemma countDeficit_exchange
+    (target : TileCounts) (before : Hand) (discarded drawn : Tile)
+    (hdrawn : target drawn > before.counts drawn)
+    (hdiscarded : before.counts discarded > target discarded)
+    (hne : discarded ≠ drawn) :
+    countDeficit (exchangeHand before discarded drawn).counts target =
+      countDeficit before.counts target - 1 := by
+  let deficit : Tile → Nat := fun tile => target tile - before.counts tile
+  let afterDeficit : Tile → Nat :=
+    fun tile => target tile - (exchangeHand before discarded drawn).counts tile
+  have hdrawn' :
+      afterDeficit drawn = deficit drawn - 1 := by
+    change target drawn - exchangeCounts before discarded drawn drawn =
+      target drawn - before.counts drawn - 1
+    exact deficit_after_drawing target before discarded drawn hne hdrawn
+  have hdiscarded' :
+      afterDeficit discarded = deficit discarded := by
+    change target discarded - exchangeCounts before discarded drawn discarded =
+      target discarded - before.counts discarded
+    exact deficit_after_discarding target before discarded drawn hne hdiscarded
+  have hother (tile : Tile) (htileDiscarded : tile ≠ discarded)
+      (htileDrawn : tile ≠ drawn) :
+      afterDeficit tile = deficit tile := by
+    change target tile - exchangeCounts before discarded drawn tile =
+      target tile - before.counts tile
+    exact deficit_unchanged target before discarded drawn tile
+      htileDiscarded htileDrawn
+  have hdiscarded_zero : deficit discarded = 0 := by
+    dsimp [deficit]
+    omega
+  have hdrawn_deficit :
+      deficit drawn = target drawn - before.counts drawn := by
+    rfl
+  have hsum :
+      (∑ tile : Tile, afterDeficit tile) =
+        (∑ tile : Tile, deficit tile) - 1 := by
+    rw [← Finset.sum_erase_add (Finset.univ : Finset Tile)
+      afterDeficit (Finset.mem_univ drawn)]
+    rw [← Finset.sum_erase_add (Finset.univ.erase drawn)
+      afterDeficit (Finset.mem_erase.mpr ⟨hne, Finset.mem_univ discarded⟩)]
+    rw [← Finset.sum_erase_add (Finset.univ : Finset Tile)
+      deficit (Finset.mem_univ drawn)]
+    rw [← Finset.sum_erase_add (Finset.univ.erase drawn)
+      deficit (Finset.mem_erase.mpr ⟨hne, Finset.mem_univ discarded⟩)]
+    have hrest :
+        (∑ tile ∈ (Finset.univ.erase drawn).erase discarded, afterDeficit tile) =
+          ∑ tile ∈ (Finset.univ.erase drawn).erase discarded, deficit tile := by
+      apply Finset.sum_congr rfl
+      intro tile htile
+      exact hother tile
+        (Finset.mem_erase.mp htile).1
+        (Finset.mem_erase.mp (Finset.mem_erase.mp htile).2).1
+    rw [hrest, hdiscarded', hdrawn', hdiscarded_zero]
+    rw [hdrawn_deficit]
+    omega
+  change (∑ tile : Tile, afterDeficit tile) =
+    (∑ tile : Tile, deficit tile) - 1
+  exact hsum
+
 /-- A target has the required number of concealed melds for a hand. -/
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
