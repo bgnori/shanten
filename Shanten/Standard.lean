@@ -941,4 +941,17 @@ lemma standardTargetOfState_exists_of_complete
       · exact standardTarget_hasMeldCount_of_complete
           hand fuel state hreachable hcomplete
 
+lemma completedMeldsForState_hasMeldCount
+    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithin hand fuel state)
+    (hcount : state.melds + state.taatsu + hand.fixedMelds = 4) :
+    HasStandardMeldCount hand (completedMeldsForState state) := by
+  have hmelds := reachableWithin_melds_eq_history_length
+    hand fuel state hreachable
+  have htaatsu := reachableWithin_taatsu_eq_history_length
+    hand fuel state hreachable
+  unfold HasStandardMeldCount
+  rw [completedMeldsForState_length, ← hmelds, ← htaatsu]
+  omega
+
 end Shanten
