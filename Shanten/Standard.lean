@@ -966,6 +966,60 @@ structure StandardBlockDecomposition (hand : Hand) where
       (standardTargetWithTaatsu pair melds taatsus +
         taatsuCompletionTiles taatsus).count tile ≤ 4
 
+def standardChoiceTiles : List StandardChoice → Multiset Tile
+  | [] => 0
+  | choice :: choices =>
+      choiceTiles choice + standardChoiceTiles choices
+
+lemma standardChoiceTiles_append
+    (left right : List StandardChoice) :
+    standardChoiceTiles (left ++ right) =
+      standardChoiceTiles left + standardChoiceTiles right := by
+  induction left with
+  | nil =>
+      simp [standardChoiceTiles]
+  | cons choice left ih =>
+      simp [standardChoiceTiles, ih, Multiset.add_assoc]
+
+def StandardBlockDecomposition.blockChoices
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    List StandardChoice :=
+  .pair decomposition.pair ::
+    decomposition.melds.map StandardChoice.meld ++
+      decomposition.taatsus.map StandardChoice.taatsu
+
+lemma standardChoiceTiles_map_meld
+    (melds : List Meld) :
+    standardChoiceTiles (melds.map StandardChoice.meld) =
+      meldsTiles melds := by
+  induction melds with
+  | nil =>
+      rfl
+  | cons meld melds ih =>
+      simp [standardChoiceTiles, choiceTiles, meldsTiles, ih]
+
+lemma standardChoiceTiles_map_taatsu
+    (taatsus : List Taatsu) :
+    standardChoiceTiles (taatsus.map StandardChoice.taatsu) =
+      taatsuHistoryTiles taatsus := by
+  induction taatsus with
+  | nil =>
+      rfl
+  | cons taatsu taatsus ih =>
+      simp [standardChoiceTiles, choiceTiles, taatsuHistoryTiles, ih]
+
+lemma StandardBlockDecomposition.blockChoices_tiles
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    standardChoiceTiles decomposition.blockChoices =
+      standardTargetWithTaatsu decomposition.pair decomposition.melds
+        decomposition.taatsus := by
+  unfold StandardBlockDecomposition.blockChoices
+  simp [standardChoiceTiles, choiceTiles, List.map_append,
+    standardChoiceTiles_append,
+    standardChoiceTiles_map_meld, standardChoiceTiles_map_taatsu,
+    standardTargetWithTaatsu, standardTarget]
+  ac_rfl
+
 def StandardBlockDecomposition.completedTarget
     {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
     Multiset Tile :=
