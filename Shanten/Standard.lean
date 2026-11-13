@@ -988,6 +988,23 @@ def StandardBlockDecomposition.blockChoices
     decomposition.melds.map StandardChoice.meld ++
       decomposition.taatsus.map StandardChoice.taatsu
 
+lemma StandardBlockDecomposition.blockChoices_mem_all
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+    ∀ choice, choice ∈ decomposition.blockChoices →
+      choice ∈ allStandardChoices := by
+  intro choice hchoice
+  unfold StandardBlockDecomposition.blockChoices at hchoice
+  simp only [List.mem_cons, List.mem_append, List.mem_map] at hchoice
+  rcases hchoice with (hpair | hmeld) | htaatsu
+  · rw [hpair]
+    exact standardChoice_mem_all _
+  · rcases hmeld with ⟨meld, _, hmeld⟩
+    rw [← hmeld]
+    exact standardChoice_mem_all _
+  · rcases htaatsu with ⟨taatsu, _, htaatsu⟩
+    rw [← htaatsu]
+    exact standardChoice_mem_all _
+
 lemma standardChoiceTiles_map_meld
     (melds : List Meld) :
     standardChoiceTiles (melds.map StandardChoice.meld) =
