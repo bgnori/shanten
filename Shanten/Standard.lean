@@ -966,6 +966,15 @@ def ValidStandardChoiceWithCopyLimit
     CompletionRespectsCopyLimit
       (applyStandardChoice hand state choice hvalid)
 
+lemma validStandardChoiceWithCopyLimit_of
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hcopy :
+      CompletionRespectsCopyLimit
+        (applyStandardChoice hand state choice hvalid)) :
+    ValidStandardChoiceWithCopyLimit hand state choice :=
+  ⟨hvalid, hcopy⟩
+
 def NextStandardStateWithCopyLimit
     (hand : Hand) (state next : StandardSearchState) : Prop :=
   ∃ choice, choice ∈ allStandardChoices ∧
@@ -973,6 +982,17 @@ def NextStandardStateWithCopyLimit
       CompletionRespectsCopyLimit
         (applyStandardChoice hand state choice hvalid) ∧
       next = applyStandardChoice hand state choice hvalid
+
+lemma nextStandardStateWithCopyLimit_of_choice
+    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+    (hchoice : choice ∈ allStandardChoices)
+    (hvalid : ValidStandardChoice hand state choice)
+    (hcopy :
+      CompletionRespectsCopyLimit
+        (applyStandardChoice hand state choice hvalid)) :
+    NextStandardStateWithCopyLimit hand state
+      (applyStandardChoice hand state choice hvalid) :=
+  ⟨choice, hchoice, hvalid, hcopy, rfl⟩
 
 noncomputable def copyLimitChoices
     (hand : Hand) (state : StandardSearchState) : Finset StandardChoice :=
