@@ -1842,6 +1842,25 @@ lemma exists_standardTarget_exchange
   exact standardTargetDistance_exchange
     hand pair melds discarded drawn hdrawn hdiscarded hneTiles
 
+lemma reachesCompletion_standard_of_standardTarget
+    (before : Hand) (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, before.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hvalid :
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))))
+    (hmelds : melds.length + before.fixedMelds = 4) :
+    ∃ distance,
+      ReachesCompletion Complete .standard before distance := by
+  apply reachesCompletion_standard_of_equal_sum
+    before
+    (countsOfTiles (standardTarget pair melds))
+    pair melds hsum hvalid hmelds
+  exact targetHand_hasTiles_countsOfTiles before
+    (standardTarget pair melds)
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
