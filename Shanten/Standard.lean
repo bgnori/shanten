@@ -1993,6 +1993,90 @@ lemma complete_standard_of_standardTarget_distance_zero
         (standardTarget pair melds))
   simpa [targetHand, hcounts] using hcomplete
 
+set_option maxHeartbeats 1000000 in
+lemma reachesCompletion_standard_of_standardTarget_distance_one
+    (before : Hand) (pair : Tile) (melds : List Meld)
+    (hdistance : standardTargetDistance before pair melds = 1)
+    (hsum :
+      (∑ tile : Tile, before.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hvalid :
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))))
+    (hmelds : melds.length + before.fixedMelds = 4) :
+    ReachesCompletion Complete .standard before 1 := by
+  obtain ⟨discarded, drawn, hdrawn, hdiscarded, hne, hdistanceNext⟩ :=
+    exists_standardTarget_exchange_of_pos
+      before pair melds hsum (by omega)
+  have hsumNext :
+      (∑ tile : Tile, (exchangeHand before discarded drawn).counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile := by
+    have hsumExchange :
+        (∑ tile : Tile, (exchangeHand before discarded drawn).counts tile) =
+          ∑ tile : Tile, before.counts tile := by
+      change
+        (∑ tile : Tile,
+          exchangeCounts before discarded drawn tile) =
+          ∑ tile : Tile, before.counts tile
+      exact exchangeCounts_sum before discarded drawn hne (by omega)
+    exact hsumExchange.trans hsum
+  have hvalidNext :
+      ValidCounts
+        (targetHand (exchangeHand before discarded drawn)
+          (countsOfTiles (standardTarget pair melds))) := by
+    change
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds)))
+    exact hvalid
+  have hmeldsNext :
+      melds.length + (exchangeHand before discarded drawn).fixedMelds = 4 := by
+    change melds.length + before.fixedMelds = 4
+    exact hmelds
+  have hcomplete :
+      Complete .standard (exchangeHand before discarded drawn) := by
+    have hzeroNext :
+        standardTargetDistance
+            (exchangeHand before discarded drawn) pair melds = 0 := by
+      omega
+    have hcountsNext :
+        (exchangeHand before discarded drawn).counts =
+          countsOfTiles (standardTarget pair melds) :=
+      (standardTargetDistance_eq_zero_iff
+        (exchangeHand before discarded drawn) pair melds hsumNext).mp
+        hzeroNext
+    have htargetComplete :
+        Complete .standard
+          (targetHand (exchangeHand before discarded drawn)
+            (countsOfTiles (standardTarget pair melds))) :=
+      complete_standard_targetHand
+        (exchangeHand before discarded drawn)
+        (countsOfTiles (standardTarget pair melds))
+        pair melds hvalidNext hmeldsNext
+        (targetHand_hasTiles_countsOfTiles
+          (exchangeHand before discarded drawn)
+          (standardTarget pair melds))
+    have hhand :
+        exchangeHand before discarded drawn =
+          targetHand (exchangeHand before discarded drawn)
+            (countsOfTiles (standardTarget pair melds)) := by
+      cases hnext : exchangeHand before discarded drawn with
+      | mk counts fixed =>
+          simp only [targetHand, hnext]
+          simpa [hnext] using
+            congrArg
+              (fun counts : TileCounts =>
+                ({ counts := counts, fixedMelds := fixed } : Hand))
+              hcountsNext
+    rw [hhand]
+    exact htargetComplete
+  apply ReachesCompletion.step
+  · exact standardTargetExchange_handStep
+      (countsOfTiles (standardTarget pair melds))
+      before discarded drawn hdrawn hdiscarded hne
+  · exact ReachesCompletion.done hcomplete
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
