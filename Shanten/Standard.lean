@@ -2667,6 +2667,22 @@ lemma exists_isShapeShanten_standard_of_valid_standardTarget_one_more
       hvalid hmelds hminimalTarget
   exact ⟨(distance : Int) - 1, hshape⟩
 
+lemma sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+    (hand : Hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
+    (pair : Tile) (melds : List Meld)
+    (hmelds : melds.length + hand.fixedMelds = 4) :
+    (∑ tile : Tile, countsOfTiles (standardTarget pair melds) tile) =
+      (∑ tile : Tile, hand.counts tile) + 1 := by
+  calc
+    _ = (standardTarget pair melds).card := by
+      exact countsOfTiles_sum_eq_card (standardTarget pair melds)
+    _ = 2 + 3 * melds.length := by
+      simp [standardTarget, Multiset.card_add, pairTiles_card,
+        meldsTiles_card]
+    _ = tileCount hand + 1 := by omega
+    _ = (∑ tile : Tile, hand.counts tile) + 1 := by rfl
+
 set_option maxHeartbeats 1000000 in
 lemma exists_standardTarget_reaching_isShapeShanten_distance
     (hand : Hand) (hbeforeValid : ValidCounts hand)
@@ -2684,17 +2700,9 @@ lemma exists_standardTarget_reaching_isShapeShanten_distance
   obtain ⟨pair, melds, hmelds, hvalid, hdistanceLE⟩ :=
     exists_standardTarget_distance_le_of_reachesCompletion
       hand distance hreach
-  have hsum :
-      (∑ tile : Tile, countsOfTiles (standardTarget pair melds) tile) =
-        (∑ tile : Tile, hand.counts tile) + 1 := by
-    calc
-      _ = (standardTarget pair melds).card := by
-        exact countsOfTiles_sum_eq_card (standardTarget pair melds)
-      _ = 2 + 3 * melds.length := by
-        simp [standardTarget, Multiset.card_add, pairTiles_card,
-          meldsTiles_card]
-      _ = tileCount hand + 1 := by omega
-      _ = (∑ tile : Tile, hand.counts tile) + 1 := by rfl
+  have hsum :=
+    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+      hand hstanding pair melds hmelds
   obtain ⟨targetDistance, htargetDistance, htargetReach⟩ :=
     reachesCompletion_standard_of_one_more_target_tile
       hand (countsOfTiles (standardTarget pair melds)) pair melds
@@ -2730,6 +2738,103 @@ lemma exists_standardTarget_reaching_isShapeShanten_distance
     htargetDistanceEq, ?_⟩
   rw [← htargetDistanceEqNat]
   exact htargetReach
+
+set_option maxHeartbeats 1000000 in
+lemma exists_minimal_standardTarget_of_isShapeShanten_standard
+    (hand : Hand) (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
+    (value : Int) (hshape : IsShapeShanten hand .standard value) :
+    ∃ distance : Nat, ∃ pair melds,
+      (distance : Int) = value + 1 ∧
+      melds.length + hand.fixedMelds = 4 ∧
+      ValidCounts
+        (targetHand hand
+          (countsOfTiles (standardTarget pair melds))) ∧
+      standardTargetDistance hand pair melds = distance ∧
+      ReachesCompletion Complete .standard hand distance ∧
+      ∀ otherPair otherMelds,
+        otherMelds.length + hand.fixedMelds = 4 →
+        ValidCounts
+          (targetHand hand
+            (countsOfTiles (standardTarget otherPair otherMelds))) →
+        standardTargetDistance hand pair melds ≤
+          standardTargetDistance hand otherPair otherMelds := by
+  obtain ⟨distance, pair, melds, hvalue, hmelds, hvalid,
+      hdistance, hreach⟩ :=
+    exists_standardTarget_reaching_isShapeShanten_distance
+      hand hbeforeValid hstanding value hshape
+  rcases hshape with ⟨_, actualDistance, hactualValue, _, hminimal⟩
+  have hdistanceEq : distance = actualDistance := by omega
+  refine ⟨distance, pair, melds, hvalue, hmelds, hvalid,
+    hdistance, hreach, ?_⟩
+  intro otherPair otherMelds hotherMelds hotherValid
+  have hsumOther :=
+    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+      hand hstanding otherPair otherMelds hotherMelds
+  obtain ⟨otherDistance, hotherDistance, hotherReach⟩ :=
+    reachesCompletion_standard_of_one_more_target_tile
+      hand (countsOfTiles (standardTarget otherPair otherMelds))
+      otherPair otherMelds hsumOther hbeforeValid hotherValid
+      hotherMelds
+      (targetHand_hasTiles_countsOfTiles hand
+        (standardTarget otherPair otherMelds))
+  have hotherDistanceEq :
+      otherDistance =
+        standardTargetDistance hand otherPair otherMelds := by
+    calc
+      otherDistance =
+          countDeficit hand.counts
+            (countsOfTiles (standardTarget otherPair otherMelds)) :=
+        hotherDistance
+      _ = standardTargetDistance hand otherPair otherMelds :=
+        (standardTargetDistance_eq_countDeficit hand otherPair otherMelds).symm
+  by_contra hnotMinimal
+  have hshorter : otherDistance < actualDistance := by
+    omega
+  exact hminimal otherDistance hshorter hotherReach
+
+lemma isShapeShanten_standard_iff_exists_minimal_standardTarget
+    (hand : Hand) (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
+    (value : Int) :
+    IsShapeShanten hand .standard value ↔
+      ∃ distance : Nat, ∃ pair melds,
+        (distance : Int) = value + 1 ∧
+        melds.length + hand.fixedMelds = 4 ∧
+        (∑ tile : Tile,
+          countsOfTiles (standardTarget pair melds) tile) =
+          (∑ tile : Tile, hand.counts tile) + 1 ∧
+        ValidCounts
+          (targetHand hand
+            (countsOfTiles (standardTarget pair melds))) ∧
+        standardTargetDistance hand pair melds = distance ∧
+        ∀ otherPair otherMelds,
+          otherMelds.length + hand.fixedMelds = 4 →
+          ValidCounts
+            (targetHand hand
+              (countsOfTiles (standardTarget otherPair otherMelds))) →
+          standardTargetDistance hand pair melds ≤
+            standardTargetDistance hand otherPair otherMelds := by
+  constructor
+  · intro hshape
+    obtain ⟨distance, pair, melds, hvalue, hmelds, hvalid,
+        hdistance, _, hminimal⟩ :=
+      exists_minimal_standardTarget_of_isShapeShanten_standard
+        hand hbeforeValid hstanding value hshape
+    have hsum :=
+      sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+        hand hstanding pair melds hmelds
+    exact ⟨distance, pair, melds, hvalue, hmelds, hsum, hvalid,
+      hdistance, hminimal⟩
+  · rintro ⟨distance, pair, melds, hvalue, hmelds, hsum,
+      hvalid, hdistance, hminimal⟩
+    have hshape :
+        IsShapeShanten hand .standard ((distance : Int) - 1) :=
+      isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+        distance hand pair melds hdistance hsum hbeforeValid
+        hvalid hmelds hminimal
+    have hvalueEq : (distance : Int) - 1 = value := by omega
+    exact hvalueEq ▸ hshape
 
 private def canonicalStandardPair : Tile :=
   .honor ⟨0, by omega⟩
