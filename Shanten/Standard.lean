@@ -2768,6 +2768,20 @@ lemma exists_isShapeShanten_standard_of_thirteenTileHand
     hand hvalid
   rw [hfixed, hcount]
 
+lemma exists_isOverallShanten_of_thirteenTileHand
+    (hand : Hand) (hthirteen : IsThirteenTileHand hand) :
+    ∃ value : Int, IsOverallShanten hand value := by
+  obtain ⟨standardValue, hstandard⟩ :=
+    exists_isShapeShanten_standard_of_thirteenTileHand hand hthirteen
+  have hstandardOption :
+      ShapeShanten hand .standard = some standardValue :=
+    (shapeShanten_eq_some_iff).2 hstandard
+  unfold IsOverallShanten OverallShanten
+  rw [hstandardOption]
+  cases hseven : ShapeShanten hand .sevenPairs <;>
+    cases horphans : ShapeShanten hand .thirteenOrphans <;>
+      simp [minOption, hseven, horphans]
+
 lemma StandardBlockDecomposition.exists_isShapeShanten
     {hand : Hand} (decomposition : StandardBlockDecomposition hand)
     (hbeforeValid : ValidCounts hand)
