@@ -11,6 +11,8 @@ The planned Lean source decomposition is documented in
 [docs/SHANTEN_LEAN_STRUCTURE.md](docs/SHANTEN_LEAN_STRUCTURE.md).
 Terminology shared by the Go contract, Mahjong model, and Lean proofs is documented
 in [docs/GLOSSARY.md](docs/GLOSSARY.md).
+Potentially misleading terminology and proposed wording changes are documented in
+[docs/TERMINOLOGY_REVIEW.md](docs/TERMINOLOGY_REVIEW.md).
 
 ## Input
 
