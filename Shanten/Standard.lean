@@ -2352,17 +2352,195 @@ lemma standardMeldCostStatesDP_cost
         _ = countDeficit hand.counts (countsOfTiles state.1) := by
           rw [congrArg Prod.fst heq]
 
+lemma mem_standardMeldCostStatesDP_iff
+    (hand : Hand) (initialTiles : Multiset Tile)
+    (meldCount : Nat) (state : Multiset Tile × Nat) :
+    state ∈ standardMeldCostStatesDP hand initialTiles meldCount ↔
+      ∃ melds,
+        melds.length = meldCount ∧
+        meldsTiles melds + initialTiles = state.1 ∧
+        state.2 = countDeficit hand.counts (countsOfTiles state.1) ∧
+        validTileMultisetBool state.1 = true := by
+  induction meldCount generalizing state with
+  | zero =>
+      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+        Finset.mem_singleton]
+      constructor
+      · rintro ⟨rfl, hvalid⟩
+        refine ⟨[], rfl, ?_, rfl, hvalid⟩
+        simp [meldsTiles]
+      · rintro ⟨melds, hlength, htiles, hcost, hvalid⟩
+        cases melds with
+        | nil =>
+            simp only [List.length_nil] at hlength
+            simp [meldsTiles] at htiles
+            have hstate : state =
+                (initialTiles,
+                  countDeficit hand.counts (countsOfTiles initialTiles)) := by
+              apply Prod.ext
+              · exact htiles.symm
+              · calc
+                  state.2 =
+                      countDeficit hand.counts (countsOfTiles state.1) := hcost
+                  _ = countDeficit hand.counts
+                      (countsOfTiles initialTiles) := by rw [htiles]
+            exact ⟨hstate, hvalid⟩
+        | cons meld melds =>
+            simp at hlength
+  | succ meldCount ih =>
+      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+        Finset.mem_biUnion, Finset.mem_univ, true_and,
+        Finset.mem_image]
+      constructor
+      · intro hstate
+        rcases hstate with ⟨⟨meld, previous, hprevious, heq⟩, hvalid⟩
+        have hpreviousCost :=
+          standardMeldCostStatesDP_cost hand initialTiles meldCount
+            previous hprevious
+        have hnextCost :=
+          standardCostStateAdd_cost hand previous (meldTiles meld)
+            hpreviousCost
+        have hcost : state.2 =
+            countDeficit hand.counts (countsOfTiles state.1) := by
+          calc
+            state.2 =
+                (standardCostStateAdd hand previous (meldTiles meld)).2 :=
+              (congrArg Prod.snd heq).symm
+            _ = countDeficit hand.counts
+                (countsOfTiles
+                  (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+              hnextCost
+            _ = countDeficit hand.counts (countsOfTiles state.1) := by
+              rw [congrArg Prod.fst heq]
+        obtain ⟨melds, hlength, htiles, _, _⟩ :=
+          (ih previous).mp hprevious
+        have hfst := congrArg Prod.fst heq
+        refine ⟨meld :: melds, by simp [hlength], ?_, hcost, hvalid⟩
+        calc
+          meldsTiles (meld :: melds) + initialTiles =
+              meldTiles meld + (meldsTiles melds + initialTiles) := by
+                rw [show meldsTiles (meld :: melds) =
+                    meldTiles meld + meldsTiles melds by rfl]
+                ac_rfl
+          _ = meldTiles meld + previous.1 := by rw [htiles]
+          _ = (standardCostStateAdd hand previous (meldTiles meld)).1 := by
+                simp [standardCostStateAdd, Multiset.add_comm]
+          _ = state.1 := hfst
+      · rintro ⟨melds, hlength, htiles, hcost, hvalid⟩
+        cases melds with
+        | nil =>
+            simp at hlength
+        | cons meld melds =>
+            simp only [List.length_cons] at hlength
+            have htilesShape :
+                meldsTiles (meld :: melds) + initialTiles =
+                  (meldsTiles melds + initialTiles) + meldTiles meld := by
+              rw [show meldsTiles (meld :: melds) =
+                  meldTiles meld + meldsTiles melds by rfl]
+              ac_rfl
+            have hpreviousValid :
+                validTileMultisetBool
+                  (meldsTiles melds + initialTiles) = true := by
+              apply validTileMultisetBool_add_left
+                (meldsTiles melds + initialTiles) (meldTiles meld)
+              have hfinalValid := hvalid
+              rw [← htiles] at hfinalValid
+              rw [htilesShape] at hfinalValid
+              exact hfinalValid
+            let previous : Multiset Tile × Nat :=
+              (meldsTiles melds + initialTiles,
+                countDeficit hand.counts
+                  (countsOfTiles (meldsTiles melds + initialTiles)))
+            have hprevious :
+                previous ∈ standardMeldCostStatesDP hand initialTiles meldCount :=
+              (ih previous).2
+                ⟨melds, by omega, rfl, rfl, hpreviousValid⟩
+            have hnextCost :=
+              standardCostStateAdd_cost hand previous (meldTiles meld) rfl
+            have hfirst :
+                (standardCostStateAdd hand previous (meldTiles meld)).1 =
+                  state.1 := by
+              calc
+                (standardCostStateAdd hand previous (meldTiles meld)).1 =
+                    (meldsTiles melds + initialTiles) + meldTiles meld := by
+                      simp [standardCostStateAdd, previous]
+                _ = meldsTiles (meld :: melds) + initialTiles :=
+                  htilesShape.symm
+                _ = state.1 := htiles
+            refine ⟨⟨meld, previous, hprevious, ?_⟩, hvalid⟩
+            apply Prod.ext
+            · exact hfirst
+            · calc
+                (standardCostStateAdd hand previous (meldTiles meld)).2 =
+                    countDeficit hand.counts
+                      (countsOfTiles
+                        (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+                  hnextCost
+                _ = countDeficit hand.counts
+                    (countsOfTiles state.1) := by
+                      rw [hfirst]
+                _ = state.2 := hcost.symm
+
+def recursiveStandardTargetCostStatesDP (hand : Hand) :
+    Finset (Multiset Tile × Nat) :=
+  Finset.univ.biUnion fun pair =>
+    standardMeldCostStatesDP hand (pairTiles pair)
+      (4 - hand.fixedMelds)
+
+lemma recursiveStandardTargetCostStatesDP_eq
+    (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) :
+    recursiveStandardTargetCostStatesDP hand =
+      standardTargetCostStatesDP hand := by
+  ext state
+  unfold recursiveStandardTargetCostStatesDP
+  simp only [Finset.mem_biUnion, Finset.mem_univ, true_and]
+  rw [mem_standardTargetCostStatesDP_iff]
+  constructor
+  · rintro ⟨pair, hstate⟩
+    obtain ⟨melds, hlength, htiles, hcost, hvalid⟩ :=
+      (mem_standardMeldCostStatesDP_iff hand (pairTiles pair)
+        (4 - hand.fixedMelds) state).mp hstate
+    have htargetLength : melds.length + hand.fixedMelds = 4 := by
+      omega
+    have htarget :
+        standardTarget pair melds = state.1 := by
+      rw [standardTarget]
+      calc
+        pairTiles pair + meldsTiles melds =
+            meldsTiles melds + pairTiles pair := by ac_rfl
+        _ = state.1 := htiles
+    have htilesTarget :
+        state.1 ∈ standardTargetTileStatesDP hand.fixedMelds :=
+      (mem_standardTargetTileStatesDP_iff hand.fixedMelds hfixed
+        state.1).2
+        ⟨pair, melds, htargetLength, htarget, hvalid⟩
+    exact ⟨htilesTarget, hcost⟩
+  · rintro ⟨htiles, hcost⟩
+    obtain ⟨pair, melds, hlength, htarget, hvalid⟩ :=
+      (mem_standardTargetTileStatesDP_iff hand.fixedMelds hfixed
+        state.1).mp htiles
+    refine ⟨pair, ?_⟩
+    apply (mem_standardMeldCostStatesDP_iff hand (pairTiles pair)
+      (4 - hand.fixedMelds) state).2
+    refine ⟨melds, ?_, ?_, hcost, ?_⟩
+    · omega
+    · rw [← htarget, standardTarget]
+      ac_rfl
+    · exact hvalid
+
 def validStandardTargetDistances (hand : Hand) :
     Finset Nat :=
-  (standardTargetCostStatesDP hand).image Prod.snd
+  (recursiveStandardTargetCostStatesDP hand).image Prod.snd
 
-lemma standardTargetCostDistances_eq_tileDistances (hand : Hand) :
+lemma standardTargetCostDistances_eq_tileDistances
+    (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) :
     validStandardTargetDistances hand =
       (standardTargetTileStatesDP hand.fixedMelds).image
         (fun tiles => countDeficit hand.counts (countsOfTiles tiles)) := by
+  unfold validStandardTargetDistances
+  rw [recursiveStandardTargetCostStatesDP_eq hand hfixed]
   ext distance
-  simp [validStandardTargetDistances, standardTargetCostStatesDP,
-    Finset.image_image]
+  simp [standardTargetCostStatesDP, Finset.image_image]
 
 /-- Exhaustive target-state search; equal tile multisets are deduplicated at each meld count. -/
 def standardTargetMinimumSearch (hand : Hand) : Option Int :=
@@ -2382,7 +2560,7 @@ lemma mem_validStandardTargetDistances_iff
             (countsOfTiles (standardTarget pair melds))) ∧
         standardTargetDistance hand pair melds = distance := by
   classical
-  rw [standardTargetCostDistances_eq_tileDistances]
+  rw [standardTargetCostDistances_eq_tileDistances hand hfixed]
   simp only [Finset.mem_image]
   constructor
   · rintro ⟨tiles, htiles, hdistance⟩
