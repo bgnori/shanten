@@ -3576,6 +3576,14 @@ lemma mentsuHandTargetMinimumSearch_eq_some_iff
       isShapeShanten_unique hshape hvalue
     rw [hsearch, heq]
 
+lemma mentsuHandTargetMinimumSearch_eq_some_iff_of_thirteenTileHand
+    (hand : Hand) (hthirteen : IsThirteenTileHand hand) (value : Int) :
+    mentsuHandTargetMinimumSearch hand = some value ↔
+      IsShapeShanten hand .mentsuHand value := by
+  rcases hthirteen with ⟨hfixed, hcount, hvalid⟩
+  apply mentsuHandTargetMinimumSearch_eq_some_iff hand hvalid
+  rw [hfixed, hcount]
+
 lemma exists_isShapeShanten_mentsuHand_of_valid_thirteen_tile_count
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
