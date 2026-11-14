@@ -2066,6 +2066,42 @@ lemma validCountsBool_eq_true_iff (hand : Hand) :
     validCountsBool hand = true ↔ ValidCounts hand := by
   simp [validCountsBool]
 
+def validTileMultisetBool (tiles : Multiset Tile) : Bool :=
+  validCountsBool
+    { counts := countsOfTiles tiles
+      fixedMelds := 0 }
+
+lemma validTileMultisetBool_eq_true_iff (tiles : Multiset Tile) :
+    validTileMultisetBool tiles = true ↔
+      ∀ tile, tiles.count tile ≤ 4 := by
+  change validCountsBool
+    { counts := countsOfTiles tiles
+      fixedMelds := 0 } = true ↔ _
+  rw [validCountsBool_eq_true_iff]
+  rfl
+
+lemma validTileMultisetBool_add_left
+    (tiles extra : Multiset Tile)
+    (hvalid : validTileMultisetBool (tiles + extra) = true) :
+    validTileMultisetBool tiles = true := by
+  apply (validTileMultisetBool_eq_true_iff tiles).2
+  intro tile
+  have hsum :=
+    (validTileMultisetBool_eq_true_iff (tiles + extra)).1 hvalid tile
+  have hle : tiles.count tile ≤ (tiles + extra).count tile := by
+    simp only [Multiset.count_add]
+    omega
+  omega
+
+lemma validTileMultisetBool_eq_true_iff_targetHand
+    (hand : Hand) (tiles : Multiset Tile) :
+    validTileMultisetBool tiles = true ↔
+      ValidCounts (targetHand hand (countsOfTiles tiles)) := by
+  rw [validTileMultisetBool_eq_true_iff]
+  change (∀ tile, tiles.count tile ≤ 4) ↔
+    (∀ tile, tiles.count tile ≤ 4)
+  rfl
+
 lemma mem_standardTargetConfigurations_iff
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
     (pair : Tile) (melds : List Meld) :
@@ -2099,12 +2135,119 @@ lemma mem_validStandardTargetConfigurations_iff
       hand.fixedMelds hfixed pair melds]
   rw [validCountsBool_eq_true_iff]
 
+def standardMeldTileStatesDP : Nat → Finset (Multiset Tile)
+  | 0 => {0}
+  | meldCount + 1 =>
+      (Finset.univ.biUnion fun meld =>
+        (standardMeldTileStatesDP meldCount).image
+          (fun tiles => meldTiles meld + tiles)).filter
+        (fun tiles => validTileMultisetBool tiles = true)
+
+lemma mem_standardMeldTileStatesDP_iff
+    (meldCount : Nat) (tiles : Multiset Tile) :
+    tiles ∈ standardMeldTileStatesDP meldCount ↔
+      ∃ melds, melds.length = meldCount ∧
+        meldsTiles melds = tiles ∧ validTileMultisetBool tiles = true := by
+  induction meldCount generalizing tiles with
+  | zero =>
+      change tiles ∈ ({0} : Finset (Multiset Tile)) ↔ _
+      simp only [Finset.mem_singleton]
+      constructor
+      · rintro rfl
+        refine ⟨[], rfl, rfl, ?_⟩
+        apply (validTileMultisetBool_eq_true_iff 0).2
+        intro tile
+        simp
+      · rintro ⟨melds, hlength, htiles, _⟩
+        cases melds with
+        | nil =>
+            simpa [meldsTiles] using htiles.symm
+        | cons meld melds =>
+            simp at hlength
+  | succ meldCount ih =>
+      simp only [standardMeldTileStatesDP, Finset.mem_filter,
+        Finset.mem_biUnion, Finset.mem_univ, true_and,
+        Finset.mem_image]
+      constructor
+      · rintro ⟨⟨meld, previous, hprevious, heq⟩, hvalid⟩
+        obtain ⟨melds, hlength, htiles, _⟩ :=
+          (ih previous).mp hprevious
+        refine ⟨meld :: melds, ?_, ?_, hvalid⟩
+        · simp [hlength]
+        · calc
+            meldsTiles (meld :: melds) =
+                meldTiles meld + meldsTiles melds := rfl
+            _ = meldTiles meld + previous := by rw [htiles]
+            _ = tiles := heq
+      · rintro ⟨melds, hlength, htiles, hvalid⟩
+        cases melds with
+        | nil =>
+            simp at hlength
+        | cons meld melds =>
+            simp only [List.length_cons] at hlength
+            have hvalidFull' := hvalid
+            have hvalidFull :
+                validTileMultisetBool
+                  (meldTiles meld + meldsTiles melds) = true := by
+              rw [← htiles] at hvalidFull'
+              simpa [meldsTiles] using hvalidFull'
+            have htailValid :
+                validTileMultisetBool (meldsTiles melds) = true := by
+              apply validTileMultisetBool_add_left
+                (meldsTiles melds) (meldTiles meld)
+              simpa [Multiset.add_comm] using hvalidFull
+            have hprevious :
+                meldsTiles melds ∈ standardMeldTileStatesDP meldCount :=
+              (ih (meldsTiles melds)).2
+                ⟨melds, by omega, rfl, htailValid⟩
+            refine ⟨⟨meld, meldsTiles melds, hprevious, ?_⟩, hvalid⟩
+            calc
+              meldTiles meld + meldsTiles melds =
+                  meldsTiles (meld :: melds) := rfl
+              _ = tiles := htiles
+
+def standardTargetTileStatesDP (fixedMelds : Nat) :
+    Finset (Multiset Tile) :=
+  (Finset.univ.biUnion fun pair =>
+    (standardMeldTileStatesDP (4 - fixedMelds)).image
+      (fun meldTiles => pairTiles pair + meldTiles)).filter
+    (fun tiles => validTileMultisetBool tiles = true)
+
+lemma mem_standardTargetTileStatesDP_iff
+    (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
+    (tiles : Multiset Tile) :
+    tiles ∈ standardTargetTileStatesDP fixedMelds ↔
+      ∃ pair melds,
+        melds.length + fixedMelds = 4 ∧
+        standardTarget pair melds = tiles ∧
+        validTileMultisetBool tiles = true := by
+  unfold standardTargetTileStatesDP
+  simp only [Finset.mem_filter, Finset.mem_biUnion,
+    Finset.mem_univ, true_and, Finset.mem_image]
+  constructor
+  · rintro ⟨⟨pair, meldTiles, hmeldTiles, rfl⟩, hvalid⟩
+    obtain ⟨melds, hlength, rfl, _⟩ :=
+      (mem_standardMeldTileStatesDP_iff (4 - fixedMelds) meldTiles).mp
+        hmeldTiles
+    refine ⟨pair, melds, ?_, rfl, hvalid⟩
+    omega
+  · rintro ⟨pair, melds, hlength, rfl, hvalid⟩
+    have hmeldValid :
+        validTileMultisetBool (meldsTiles melds) = true := by
+      apply validTileMultisetBool_add_left
+        (meldsTiles melds) (pairTiles pair)
+      simpa [standardTarget, Multiset.add_comm] using hvalid
+    refine ⟨⟨pair, meldsTiles melds, ?_, rfl⟩, hvalid⟩
+    · exact (mem_standardMeldTileStatesDP_iff (4 - fixedMelds)
+        (meldsTiles melds)).2
+        ⟨melds, by omega, rfl, hmeldValid⟩
+
 def validStandardTargetDistances (hand : Hand) :
     Finset Nat :=
-  (validStandardTargetConfigurations hand).image fun candidate =>
-    standardTargetDistance hand candidate.1 candidate.2
+  (standardTargetTileStatesDP hand.fixedMelds).image
+    (fun tiles => countDeficit hand.counts (countsOfTiles tiles))
 
-/-- Exhaustive finite reference search; this is not the memoized decomposition DP. -/
+/-- Exhaustive target-state search; equal tile multisets are deduplicated at each meld count. -/
 def standardTargetMinimumSearch (hand : Hand) : Option Int :=
   let distances := validStandardTargetDistances hand
   if h : distances.Nonempty then
@@ -2125,15 +2268,30 @@ lemma mem_validStandardTargetDistances_iff
   unfold validStandardTargetDistances
   simp only [Finset.mem_image]
   constructor
-  · rintro ⟨⟨pair, melds⟩, hcandidate, hdistance⟩
-    have hvalid :=
-      (mem_validStandardTargetConfigurations_iff
-        hand hfixed pair melds).mp hcandidate
-    exact ⟨pair, melds, hvalid.1, hvalid.2, hdistance⟩
+  · rintro ⟨tiles, htiles, hdistance⟩
+    obtain ⟨pair, melds, hmelds, htarget, hcopy⟩ :=
+      (mem_standardTargetTileStatesDP_iff
+        hand.fixedMelds hfixed tiles).mp htiles
+    refine ⟨pair, melds, hmelds, ?_, ?_⟩
+    · rw [← htarget] at hcopy
+      exact (validTileMultisetBool_eq_true_iff_targetHand
+        hand (standardTarget pair melds)).mp hcopy
+    · rw [← htarget] at hdistance
+      rw [standardTargetDistance_eq_countDeficit]
+      exact hdistance
   · rintro ⟨pair, melds, hmelds, hvalid, hdistance⟩
-    refine ⟨(pair, melds), ?_, hdistance⟩
-    exact (mem_validStandardTargetConfigurations_iff
-      hand hfixed pair melds).mpr ⟨hmelds, hvalid⟩
+    let tiles := standardTarget pair melds
+    have hcopy :
+        validTileMultisetBool tiles = true :=
+      (validTileMultisetBool_eq_true_iff_targetHand hand tiles).mpr hvalid
+    have htiles :
+        tiles ∈ standardTargetTileStatesDP hand.fixedMelds :=
+      (mem_standardTargetTileStatesDP_iff
+        hand.fixedMelds hfixed tiles).mpr
+        ⟨pair, melds, hmelds, rfl, hcopy⟩
+    refine ⟨tiles, htiles, ?_⟩
+    rw [standardTargetDistance_eq_countDeficit] at hdistance
+    exact hdistance
 
 lemma exists_min_validStandardTargetDistance
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
