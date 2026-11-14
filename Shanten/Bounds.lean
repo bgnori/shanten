@@ -158,9 +158,9 @@ theorem overallShanten_le_six_of_thirteenTileHand
     (shapeShanten_eq_some_iff).2 hshape
   have hvalue' : OverallShanten hand = some value := hvalue
   unfold OverallShanten at hvalue'
-  cases hmentsu : ShapeShanten hand .mentsu <;>
+  cases hmentsuHand : ShapeShanten hand .mentsuHand <;>
     cases hthirteen : ShapeShanten hand .thirteenOrphans <;>
-    simp [hseven, hmentsu, hthirteen, minOption] at hvalue'
+    simp [hseven, hmentsuHand, hthirteen, minOption] at hvalue'
   case none.none =>
     omega
   case none.some =>
@@ -221,19 +221,19 @@ theorem shapeShanten_le_six_of_completion_bound
 If a shape has a completion reachable in at most nine steps, then its
 shape-specific shanten value is at most eight.  In particular, the bound is
 independent of how many fixed melds the hand has: fixed melds are preserved by
-`HandStep` and are counted in `Complete .mentsu`.
+`HandStep` and are counted in `Complete .mentsuHand`.
 -/
-theorem mentsuShanten_le_eight_of_completion_bound
+theorem mentsuHandShanten_le_eight_of_completion_bound
     (hand : Hand)
     (hbound : ∃ distance : Nat, distance ≤ 9 ∧
-      ReachesCompletion Complete .mentsu hand distance)
+      ReachesCompletion Complete .mentsuHand hand distance)
     (value : Int)
-    (hvalue : IsShapeShanten hand .mentsu value) :
+    (hvalue : IsShapeShanten hand .mentsuHand value) :
     value ≤ 8 := by
   classical
   obtain ⟨bound, hbound', hreachable⟩ := hbound
   let reachable : Nat → Prop :=
-    fun distance => ReachesCompletion Complete .mentsu hand distance
+    fun distance => ReachesCompletion Complete .mentsuHand hand distance
   have hexists : ∃ distance, reachable distance :=
     ⟨bound, hreachable⟩
   let distance := Nat.find hexists
@@ -246,7 +246,7 @@ theorem mentsuShanten_le_eight_of_completion_bound
     exact le_trans
       (Nat.find_min' hexists (show reachable bound from hreachable)) hbound'
   have hshape :
-      IsShapeShanten hand .mentsu ((distance : Int) - 1) := by
+      IsShapeShanten hand .mentsuHand ((distance : Int) - 1) := by
     refine ⟨hvalue.1, distance, by omega, hdistance, ?_⟩
     intro smaller hsmaller hsmall
     exact hminimal smaller hsmaller hsmall
@@ -255,12 +255,12 @@ theorem mentsuShanten_le_eight_of_completion_bound
     isShapeShanten_unique hvalue hshape
   omega
 
-/-- With a fixed meld, only the mentsu shape contributes to overall shanten. -/
+/-- With a fixed meld, only the mentsuHand shape contributes to overall shanten. -/
 theorem overallShanten_le_eight_of_fixedMelds
     (hand : Hand)
     (hfixed : 0 < hand.fixedMelds)
     (hbound : ∃ distance : Nat, distance ≤ 9 ∧
-      ReachesCompletion Complete .mentsu hand distance)
+      ReachesCompletion Complete .mentsuHand hand distance)
     (value : Int)
     (hvalue : IsOverallShanten hand value) :
     value ≤ 8 := by
@@ -284,21 +284,21 @@ theorem overallShanten_le_eight_of_fixedMelds
           simp [Applicable, Nat.ne_of_gt hfixed]
         exact happ (Classical.choose_spec h).1)
     next h => rfl
-  have hmentsu := hvalue
-  unfold IsOverallShanten OverallShanten at hmentsu
-  rw [hseven, hthirteen] at hmentsu
-  cases hshape : ShapeShanten hand .mentsu with
+  have hmentsuHand := hvalue
+  unfold IsOverallShanten OverallShanten at hmentsuHand
+  rw [hseven, hthirteen] at hmentsuHand
+  cases hshape : ShapeShanten hand .mentsuHand with
   | none =>
-      simp [hshape, minOption] at hmentsu
-  | some mentsuValue =>
-      have hmentsuValue :
-          IsShapeShanten hand .mentsu mentsuValue :=
+      simp [hshape, minOption] at hmentsuHand
+  | some mentsuHandValue =>
+      have hmentsuHandValue :
+          IsShapeShanten hand .mentsuHand mentsuHandValue :=
         (shapeShanten_eq_some_iff).1 hshape
-      have hle := mentsuShanten_le_eight_of_completion_bound
-        hand hbound mentsuValue hmentsuValue
-      have hmentsu' : some mentsuValue = some value := by
-        simpa [hshape, minOption] using hmentsu
-      have heq : mentsuValue = value := Option.some.inj hmentsu'
+      have hle := mentsuHandShanten_le_eight_of_completion_bound
+        hand hbound mentsuHandValue hmentsuHandValue
+      have hmentsuHand' : some mentsuHandValue = some value := by
+        simpa [hshape, minOption] using hmentsuHand
+      have heq : mentsuHandValue = value := Option.some.inj hmentsuHand'
       omega
 
 /-- The seven-pairs component of the thirteen-tile upper bound. -/
@@ -311,13 +311,13 @@ theorem sevenPairsShanten_le_six_of_completion_bound
     (show Applicable .sevenPairs hand from h13.1)
     (reaches_sevenPairs_completion hand h13) value hvalue
 
-/-- The mentsu-form component of the thirteen-tile upper bound. -/
-theorem mentsuShanten_le_six_of_completion_bound
-    (happlicable : Applicable .mentsu hand)
+/-- The mentsu-hand-form component of the thirteen-tile upper bound. -/
+theorem mentsuHandShanten_le_six_of_completion_bound
+    (happlicable : Applicable .mentsuHand hand)
     (hbound : ∃ distance : Nat, distance ≤ 7 ∧
-      ReachesCompletion Complete .mentsu hand distance)
+      ReachesCompletion Complete .mentsuHand hand distance)
     (value : Int)
-    (hvalue : IsShapeShanten hand .mentsu value) :
+    (hvalue : IsShapeShanten hand .mentsuHand value) :
     value ≤ 6 := by
   apply shapeShanten_le_six_of_completion_bound
     happlicable hbound value hvalue

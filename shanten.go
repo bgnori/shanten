@@ -39,10 +39,10 @@ type ShapeResult struct {
 }
 
 type Result struct {
-	Mentsu          int
+	MentsuHand          int
 	SevenPairs      ShapeResult
 	ThirteenOrphans ShapeResult
-	// Shanten is the minimum over Mentsu and applicable special shapes.
+	// Shanten is the minimum over MentsuHand and applicable special shapes.
 	Shanten int
 }
 

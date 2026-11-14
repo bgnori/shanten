@@ -44,13 +44,13 @@ are not separately distinguished; only the supplied tile composition is evaluate
 ## Result
 
 Tenpai is `0`, completion is `-1`, and all applicable shanten values are at least
-`-1`. `Mentsu` is always applicable.
+`-1`. `MentsuHand` is always applicable.
 
 `SevenPairs.Applicable` and `ThirteenOrphans.Applicable` are true exactly when
 there are no fixed melds. If false, their `Shanten` field must be zero and must
 not participate in the minimum. Thus ankan also disables both special shapes.
 With no fixed melds, `Shanten` is the minimum of all three shapes; otherwise it
-equals `Mentsu`. Inapplicability is not a backend capability failure.
+equals `MentsuHand`. Inapplicability is not a backend capability failure.
 An implementation unable to evaluate an applicable shape must return an error.
 
 Shanten is structural: do not impose yaku, furiten, visible-tile availability,

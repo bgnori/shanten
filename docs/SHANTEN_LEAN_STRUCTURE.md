@@ -13,7 +13,7 @@ Shanten/
   Core.lean
   Specification.lean
   SevenPairs.lean
-  Mentsu.lean
+  MentsuHand.lean
   Bounds.lean
 Shanten.lean
 ```
@@ -116,7 +116,7 @@ import Shanten.Bounds
 - `overallShanten_le_six_of_thirteenTileHand`
 - `shapeShanten_le_six_of_completion_bound`
 - `sevenPairsShanten_le_six_of_completion_bound`
-- `mentsuShanten_le_eight_of_completion_bound`
+- `mentsuHandShanten_le_eight_of_completion_bound`
 - `overallShanten_le_eight_of_fixedMelds`
 - 面子手・国士無双向けの上界定理
 - 国士無双の直接計算に関する定理
@@ -125,14 +125,14 @@ DPの探索状態・遷移・評価関数そのものは、このファイルに
 と証明で共有する一般形DPは、形の仕様と独立した計算モジュールとして追加する。
 `Bounds.lean` は、そのDPが提供する到達性補題をシャンテン数の上界へ変換する層とする。
 
-### `Mentsu.lean`
+### `MentsuHand.lean`
 
 実行用計算器と証明で共有する、面子手の有限探索基盤を置く。
 
-- `MentsuSearchState`
-- `mentsuTarget`
+- `MentsuHandSearchState`
+- `mentsuHandTarget`
 - `targetDeficit`
-- `mentsuTargetDistance`
+- `mentsuHandTargetDistance`
 - 面子手の目標と探索状態に関する不変条件
 
 このファイルには、総合シャンテン値や上界定理を置かない。まず枝刈りのないDPを

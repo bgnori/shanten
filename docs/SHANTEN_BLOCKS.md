@@ -54,7 +54,7 @@
 同じ牌2枚からなる対である。面子手では、面子系ブロックとは別に
 ちょうど1つの雀頭が必要になる。
 
-DPでは、雀頭の有無を `MentsuSearchState.pair : Option Tile` で表す。
+DPでは、雀頭の有無を `MentsuHandSearchState.pair : Option Tile` で表す。
 
 ## 面子手の構造
 
@@ -77,8 +77,8 @@ DPでは、雀頭の有無を `MentsuSearchState.pair : Option Tile` で表す�
 
 ## DP状態との対応
 
-[`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) の
-`MentsuSearchState` には、面子手の分解が次のように記録される。
+[`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) の
+`MentsuHandSearchState` には、面子手の分解が次のように記録される。
 
 | DP状態 | 意味 |
 |---|---|
@@ -118,8 +118,8 @@ state.pair.isSome
 
 DPが選択した搭子は、必要な1枚を補うことで完成面子になる。
 
-[`taatsuCompletionTile`](../Shanten/Mentsu.lean) は補充すべき牌を、
-[`taatsuCompletionMeld`](../Shanten/Mentsu.lean) は補充後の面子を構成する。
+[`taatsuCompletionTile`](../Shanten/MentsuHand.lean) は補充すべき牌を、
+[`taatsuCompletionMeld`](../Shanten/MentsuHand.lean) は補充後の面子を構成する。
 
 搭子履歴全体については、次の変換を行う。
 
@@ -203,7 +203,7 @@ DPは完成面子と搭子を合わせて4ブロックを構成する。
 
 ## 現在の実装に関する注意
 
-現在の `IsMentsuSearchComplete` は、歴史的に次の条件を使っている。
+現在の `IsMentsuHandSearchComplete` は、歴史的に次の条件を使っている。
 
 ```lean
 state.melds + hand.fixedMelds = 4 ∧ state.pair.isSome

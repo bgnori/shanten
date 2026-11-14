@@ -116,7 +116,7 @@
 
 - **雀頭 (head / pair)** `[麻雀][Lean]`
   面子手で面子系ブロック4個とは別に必要な1対。Leanの面子手探索では
-  `MentsuSearchState.pair : Option Tile` が候補の有無を表す。
+  `MentsuHandSearchState.pair : Option Tile` が候補の有無を表す。
 
 - **搭子 (taatsu)** `[麻雀][Lean]`
   1枚補えば面子になる未完成の2枚組。対子形搭子と順子形搭子がある。
@@ -129,7 +129,7 @@
 
 - **面子手 (mentsu hand)** `[麻雀]`
   4面子と1雀頭からなる形。固定面子も4面子の一部として数える。
-  Leanの `Shape.mentsu` がこの形を表す。
+  Leanの `Shape.mentsuHand` がこの形を表す。
 
 - **七対子 (seven pairs)** `[麻雀]`
   異なる7牌種の対7組からなる特殊形。固定面子がある手には適用しない。
@@ -205,7 +205,7 @@
 
 - **動的計画法 (dynamic programming, DP)** `[アルゴリズム]`
   部分問題の状態を再利用して有限探索を行う方法。面子手では、牌を使った量、
-  雀頭・面子・搭子の履歴などを `MentsuSearchState` に保存する。
+  雀頭・面子・搭子の履歴などを `MentsuHandSearchState` に保存する。
 
 ## Lean4・数学的証明の用語
 
@@ -226,7 +226,7 @@
   枚数を計算し、`Complete` は完成条件を定義する。
 
 - **構造体 (structure)** `[Lean]`
-  名前付きフィールドを持つ型。`Hand` と `MentsuSearchState` が該当する。
+  名前付きフィールドを持つ型。`Hand` と `MentsuHandSearchState` が該当する。
   フィールドが満たすべき命題を持つ構造体は、データと不変条件を一緒に扱える。
 
 - **帰納型 (inductive type)** `[Lean][数学]`
@@ -244,7 +244,7 @@
 
 - **`Option`** `[Lean]`
   値がない可能性を `none`、ある値を `some value` で表す型。
-  `MentsuSearchState.pair` は雀頭候補がまだない状態を `none` で表す。
+  `MentsuHandSearchState.pair` は雀頭候補がまだない状態を `none` で表す。
   `ShapeShanten` の `none` は値が存在しない（通常は適用不可または到達不能）
   ことを表す。
 
@@ -278,7 +278,7 @@
 
 - **遷移 (step / transition)** `[数学][アルゴリズム]`
   ある状態から次の状態へ進む1回の操作。`HandStep` は牌を引く、または1枚を
-  別の牌種に交換する改善操作、`NextMentsuState` は面子手DPの1選択を表す。
+  別の牌種に交換する改善操作、`NextMentsuHandState` は面子手DPの1選択を表す。
 
 - **最短距離 (minimal distance)** `[数学]`
   到達可能な距離のうち最小のもの。距離0が完成、距離1がテンパイになるため、
@@ -296,28 +296,28 @@
 | 識別子 | 意味 | 主な場所 |
 |---|---|---|
 | `Counts37` | 赤5を別要素として保持する37要素のGoカウント配列。計算前に通常5へ合算する。 | [`shanten.go`](../shanten.go) |
-| `Result.Mentsu` | Go契約における面子手のシャンテン値。常に適用可能で、完成は`-1`。 | [`shanten.go`](../shanten.go) |
+| `Result.MentsuHand` | Go契約における面子手のシャンテン値。常に適用可能で、完成は`-1`。 | [`shanten.go`](../shanten.go) |
 | `Hand` | Leanの手牌抽象モデル。`counts` と固定面子数を持つ。固定面子の牌内容はまだ持たない。 | [`Shanten/Core.lean`](../Shanten/Core.lean) |
 | `Tile` | Leanの正規化済み牌種。34種類相当で、赤5を分離しない。 | [`Shanten/Core.lean`](../Shanten/Core.lean) |
 | `Meld` | Leanで表す完成面子。`triplet` または `sequence`。Goの入力固定面子と同義ではない。 | [`Shanten/Core.lean`](../Shanten/Core.lean) |
-| `Taatsu` | Leanで表す未完成の2枚組。対子形または順子形。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
+| `Taatsu` | Leanで表す未完成の2枚組。対子形または順子形。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
 | `ValidCounts` | 各牌種のカウントが4以下であるという述語。 | [`Shanten/Core.lean`](../Shanten/Core.lean) |
 | `IsThirteenTileHand` | 固定面子なし、手元牌13枚、かつ4枚制限を満たすという述語。 | [`Shanten/Core.lean`](../Shanten/Core.lean) |
-| `Shape` | `mentsu`、`sevenPairs`、`thirteenOrphans` の形の列挙型。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
+| `Shape` | `mentsuHand`、`sevenPairs`、`thirteenOrphans` の形の列挙型。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `Applicable` | 形を評価できるかを表す述語。特殊形は固定面子なしの場合だけ真。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `Complete` | 指定した形の完成条件。役や待ちの良し悪しは含めない。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `HandStep` | 1枚ドローまたは1枚交換による改善遷移。固定面子数は保存する。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `ReachesCompletion` | 指定回数の `HandStep` で完成条件へ到達する関係。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `ShapeShanten` | 形ごとの最小到達距離をシャンテン値へ変換した、値の候補。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `OverallShanten` | 適用可能な形のシャンテン値の最小値。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
-| `MentsuSearchState` | 面子手DPの状態。使用牌、雀頭、面子・搭子の履歴と個数を持つ。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `MentsuChoice` | 面子手DPの1分岐。`skip`、雀頭、搭子、面子を選ぶ。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `MentsuSearch` | 完成面子4個＋雀頭という、現行の面子手探索の完了条件。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `MentsuBlockSearch` | 面子＋搭子の合計4ブロック＋雀頭というブロック探索の完了条件。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `MentsuBlockDecomposition` | 面子手を雀頭・完成面子・搭子へ分解した証明付き構造。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `target` | 到達したい完成形の牌の多重集合。`mentsuTarget` などで構成する。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
-| `deficit` | 現在のカウントが目標に不足する枚数。必要な交換・ドローの下限に使う。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) / [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
-| `CompletionRespectsCopyLimit` | 搭子を補充して完成させても、各牌種4枚を超えないという述語。 | [`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) |
+| `MentsuHandSearchState` | 面子手DPの状態。使用牌、雀頭、面子・搭子の履歴と個数を持つ。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `MentsuHandChoice` | 面子手DPの1分岐。`skip`、雀頭、搭子、面子を選ぶ。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `MentsuHandSearch` | 完成面子4個＋雀頭という、現行の面子手探索の完了条件。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `MentsuHandBlockSearch` | 面子＋搭子の合計4ブロック＋雀頭というブロック探索の完了条件。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `MentsuHandBlockDecomposition` | 面子手を雀頭・完成面子・搭子へ分解した証明付き構造。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `target` | 到達したい完成形の牌の多重集合。`mentsuHandTarget` などで構成する。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
+| `deficit` | 現在のカウントが目標に不足する枚数。必要な交換・ドローの下限に使う。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) / [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
+| `CompletionRespectsCopyLimit` | 搭子を補充して完成させても、各牌種4枚を超えないという述語。 | [`Shanten/MentsuHand.lean`](../Shanten/MentsuHand.lean) |
 | `ReachesExchange` | 交換操作を指定回数つないだ関係。七対子の構成的証明で使う。 | [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
 | `PairingExchange` / `PairMakingExchange` | 既存の対を保ちながら、対を作るための交換の分類。 | [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
 | `ProtectedPairMakingExchange` | 保護対象の牌種を残したまま対を作る交換の分類。 | [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
