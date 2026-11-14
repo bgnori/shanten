@@ -1903,6 +1903,23 @@ lemma exists_standardTarget_exchange
   exact standardTargetDistance_exchange
     hand pair melds discarded drawn hdrawn hdiscarded hneTiles
 
+lemma exists_standardTarget_exchange_of_pos
+    (hand : Hand) (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, hand.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hpos : 0 < standardTargetDistance hand pair melds) :
+    ∃ discarded drawn,
+      (standardTarget pair melds).count drawn > hand.counts drawn ∧
+      hand.counts discarded >
+        (standardTarget pair melds).count discarded ∧
+      discarded ≠ drawn ∧
+      standardTargetDistance
+          (exchangeHand hand discarded drawn) pair melds =
+        standardTargetDistance hand pair melds - 1 := by
+  apply exists_standardTarget_exchange hand pair melds hsum
+  exact (standardTargetDistance_pos_iff hand pair melds hsum).mp hpos
+
 lemma reachesCompletion_standard_of_standardTarget
     (before : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
