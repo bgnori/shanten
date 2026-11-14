@@ -2141,6 +2141,29 @@ lemma reachesCompletion_standard_of_standardTarget_distance
           before discarded drawn hdrawn hdiscarded hne
       · exact hrest
 
+lemma isShapeShanten_standard_of_standardTarget_distance
+    (distance : Nat)
+    (before : Hand) (pair : Tile) (melds : List Meld)
+    (hdistance : standardTargetDistance before pair melds = distance)
+    (hsum :
+      (∑ tile : Tile, before.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile)
+    (hvalid :
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))))
+    (hmelds : melds.length + before.fixedMelds = 4)
+    (hminimal :
+      ∀ smaller : Nat, smaller < distance →
+        ¬ ReachesCompletion Complete .standard before smaller) :
+    IsShapeShanten before .standard ((distance : Int) - 1) := by
+  have hreaches :
+      ReachesCompletion Complete .standard before distance :=
+    reachesCompletion_standard_of_standardTarget_distance
+      distance before pair melds hdistance hsum hvalid hmelds
+  refine ⟨trivial, distance, ?_, hreaches, hminimal⟩
+  omega
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
