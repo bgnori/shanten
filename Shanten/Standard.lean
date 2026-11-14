@@ -2055,6 +2055,17 @@ def standardTargetConfigurations (fixedMelds : Nat) :
     Finset (Tile × List Meld) :=
   Finset.univ ×ˢ standardMeldListsOfLength (4 - fixedMelds)
 
+def validCountsDecidable (hand : Hand) : Decidable (ValidCounts hand) := by
+  unfold ValidCounts
+  exact Fintype.decidableForallFintype
+
+def validCountsBool (hand : Hand) : Bool :=
+  @decide (ValidCounts hand) (validCountsDecidable hand)
+
+lemma validCountsBool_eq_true_iff (hand : Hand) :
+    validCountsBool hand = true ↔ ValidCounts hand := by
+  simp [validCountsBool]
+
 lemma mem_standardTargetConfigurations_iff
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
     (pair : Tile) (melds : List Meld) :
@@ -2065,16 +2076,14 @@ lemma mem_standardTargetConfigurations_iff
     mem_standardMeldListsOfLength_iff]
   omega
 
-noncomputable def validStandardTargetConfigurations (hand : Hand) :
+def validStandardTargetConfigurations (hand : Hand) :
     Finset (Tile × List Meld) :=
-  by
-    classical
-    exact (standardTargetConfigurations hand.fixedMelds).filter
-      (fun candidate =>
-        ValidCounts
-          (targetHand hand
-            (countsOfTiles
-              (standardTarget candidate.1 candidate.2))))
+  (standardTargetConfigurations hand.fixedMelds).filter
+    (fun candidate =>
+      validCountsBool
+        (targetHand hand
+          (countsOfTiles
+            (standardTarget candidate.1 candidate.2))) = true)
 
 lemma mem_validStandardTargetConfigurations_iff
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
@@ -2088,11 +2097,20 @@ lemma mem_validStandardTargetConfigurations_iff
   rw [validStandardTargetConfigurations, Finset.mem_filter,
     mem_standardTargetConfigurations_iff
       hand.fixedMelds hfixed pair melds]
+  rw [validCountsBool_eq_true_iff]
 
-noncomputable def validStandardTargetDistances (hand : Hand) :
+def validStandardTargetDistances (hand : Hand) :
     Finset Nat :=
   (validStandardTargetConfigurations hand).image fun candidate =>
     standardTargetDistance hand candidate.1 candidate.2
+
+/-- Exhaustive finite reference search; this is not the memoized decomposition DP. -/
+def standardTargetMinimumSearch (hand : Hand) : Option Int :=
+  let distances := validStandardTargetDistances hand
+  if h : distances.Nonempty then
+    some ((distances.min' h : Int) - 1)
+  else
+    none
 
 lemma mem_validStandardTargetDistances_iff
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) (distance : Nat) :
@@ -3070,6 +3088,40 @@ lemma exists_standardShanten_as_min_validTargetDistance
       distance hand pair melds htargetDistance hsum hbeforeValid
       htargetValid htargetMelds hminimalTarget
   exact ⟨distance, hdistanceMem, hminimalDistance, hshape⟩
+
+lemma standardTargetMinimumSearch_eq_some_iff
+    (hand : Hand) (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
+    (value : Int) :
+    standardTargetMinimumSearch hand = some value ↔
+      IsShapeShanten hand .standard value := by
+  obtain ⟨distance, hmem, hminimal, hshape⟩ :=
+    exists_standardShanten_as_min_validTargetDistance
+      hand hbeforeValid hstanding
+  let distances := validStandardTargetDistances hand
+  have hnonempty : distances.Nonempty := ⟨distance, hmem⟩
+  have hdistance :
+      distances.min' hnonempty = distance := by
+    apply Nat.le_antisymm
+    · exact Finset.min'_le distances distance hmem
+    · exact hminimal _ (Finset.min'_mem distances hnonempty)
+  have hsearch :
+      standardTargetMinimumSearch hand =
+        some ((distance : Int) - 1) := by
+    simp [standardTargetMinimumSearch, distances, hnonempty, hdistance]
+  constructor
+  · intro hresult
+    have hvalues :
+        some ((distance : Int) - 1) = some value :=
+      hsearch.symm.trans hresult
+    have hvalue : (distance : Int) - 1 = value :=
+      Option.some.inj hvalues
+    exact hvalue ▸ hshape
+  · intro hvalue
+    have heq :
+        ((distance : Int) - 1) = value :=
+      isShapeShanten_unique hshape hvalue
+    rw [hsearch, heq]
 
 lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
     (hand : Hand) (hbeforeValid : ValidCounts hand)
