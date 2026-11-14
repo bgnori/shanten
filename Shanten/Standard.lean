@@ -1802,6 +1802,49 @@ lemma standardTargetDistance_eq_countDeficit
         (countsOfTiles (standardTarget pair melds)) := by
   rfl
 
+lemma standardTargetDistance_eq_zero_iff
+    (hand : Hand) (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, hand.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile) :
+    standardTargetDistance hand pair melds = 0 ↔
+      hand.counts = countsOfTiles (standardTarget pair melds) := by
+  constructor
+  · intro hdistance
+    have hdeficit :
+        countDeficit hand.counts
+          (countsOfTiles (standardTarget pair melds)) = 0 := by
+      rw [← standardTargetDistance_eq_countDeficit]
+      exact hdistance
+    have hzero :
+        ∀ tile ∈ (Finset.univ : Finset Tile),
+          (countsOfTiles (standardTarget pair melds)) tile -
+              hand.counts tile = 0 := by
+      apply (Finset.sum_eq_zero_iff_of_nonneg
+        (fun tile _ => Nat.zero_le _)).mp
+      exact hdeficit
+    have hle :
+        ∀ tile, (countsOfTiles (standardTarget pair melds)) tile ≤
+          hand.counts tile := by
+      intro tile
+      have hzeroTile := hzero tile (Finset.mem_univ tile)
+      omega
+    apply funext
+    intro tile
+    have heq :
+        ∀ tile ∈ (Finset.univ : Finset Tile),
+          (countsOfTiles (standardTarget pair melds)) tile =
+            hand.counts tile := by
+      apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
+        (f := countsOfTiles (standardTarget pair melds))
+        (g := hand.counts)
+        (fun tile _ => hle tile)).mp
+      exact hsum.symm
+    exact (heq tile (Finset.mem_univ tile)).symm
+  · intro hcounts
+    rw [standardTargetDistance_eq_countDeficit]
+    simp [countDeficit, hcounts]
+
 lemma standardTargetDistance_exchange
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (discarded drawn : Tile)
