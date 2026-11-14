@@ -1025,6 +1025,75 @@ lemma reachesCompletion_standard_of_equal_sum
   exact ⟨distance,
     ReachesExchange.toReachesCompletion hexchange hdone⟩
 
+lemma reachesCompletion_standard_of_one_more_target_tile
+    (before : Hand) (target : TileCounts)
+    (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, target tile) =
+        (∑ tile : Tile, before.counts tile) + 1)
+    (hbeforeValid : ValidCounts before)
+    (hvalid : ValidCounts (targetHand before target))
+    (hmelds : melds.length + before.fixedMelds = 4)
+    (htiles :
+      HasTiles (targetHand before target)
+        (pairTiles pair + meldsTiles melds)) :
+    ∃ distance,
+      ReachesCompletion Complete .standard before distance := by
+  have hdrawnExists : ∃ drawn, before.counts drawn < target drawn := by
+    by_contra hnone
+    push_neg at hnone
+    have hle : ∀ tile, target tile ≤ before.counts tile := by
+      intro tile
+      exact hnone tile
+    have hsumLe :=
+      Finset.sum_le_sum (s := Finset.univ)
+        (fun tile _ => hle tile)
+    omega
+  obtain ⟨drawn, hdrawn⟩ := hdrawnExists
+  let next : Hand :=
+    { counts := fun tile =>
+        before.counts tile + (if tile = drawn then 1 else 0)
+      fixedMelds := before.fixedMelds }
+  have hnextValid : ValidCounts next := by
+    intro tile
+    by_cases htile : tile = drawn
+    · subst tile
+      have htarget := hvalid drawn
+      change next.counts drawn ≤ 4
+      simp [next]
+      change target drawn ≤ 4 at htarget
+      omega
+    · have hbefore := hbeforeValid tile
+      simpa [next, htile] using hbefore
+  have hstep : HandStep before next := by
+    refine ⟨rfl, Or.inl ⟨drawn, hnextValid, ?_⟩⟩
+    intro tile
+    rfl
+  have hsumNext :
+      (∑ tile : Tile, next.counts tile) =
+        ∑ tile : Tile, target tile := by
+    calc
+      (∑ tile : Tile, next.counts tile) =
+          (∑ tile : Tile, before.counts tile) + 1 := by
+        simp [next, Finset.sum_add_distrib]
+      _ = ∑ tile : Tile, target tile := by omega
+  have hvalidNext : ValidCounts (targetHand next target) := by
+    change ValidCounts (targetHand before target)
+    exact hvalid
+  have hmeldsNext : melds.length + next.fixedMelds = 4 := by
+    change melds.length + before.fixedMelds = 4
+    exact hmelds
+  have htilesNext :
+      HasTiles (targetHand next target)
+        (pairTiles pair + meldsTiles melds) := by
+    change HasTiles (targetHand before target)
+      (pairTiles pair + meldsTiles melds)
+    exact htiles
+  obtain ⟨distance, hrest⟩ :=
+    reachesCompletion_standard_of_equal_sum next target pair melds
+      hsumNext hvalidNext hmeldsNext htilesNext
+  exact ⟨distance + 1, ReachesCompletion.step hstep hrest⟩
+
 /-- A target has the required number of concealed melds for a hand. -/
 def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
