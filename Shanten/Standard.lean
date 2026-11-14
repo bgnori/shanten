@@ -920,12 +920,14 @@ lemma reachesExchange_targetHand_of_equal_sum
     (hsum : (∑ tile : Tile, before.counts tile) =
       ∑ tile : Tile, target tile) :
     ∃ distance,
+      distance = countDeficit before.counts target ∧
       ReachesExchange before (targetHand before target) distance := by
   have aux : ∀ d : Nat, ∀ current : Hand,
       (∑ tile : Tile, current.counts tile) =
         ∑ tile : Tile, target tile →
       countDeficit current.counts target = d →
       ∃ distance,
+        distance = d ∧
         ReachesExchange current (targetHand current target) distance := by
     intro d
     refine Nat.strong_induction_on d ?_
@@ -955,7 +957,9 @@ lemma reachesExchange_targetHand_of_equal_sum
         funext tile
         exact heq tile (Finset.mem_univ tile)
       subst hcounts
-      exact ⟨0, ReachesExchange.done⟩
+      refine ⟨0, ?_, ReachesExchange.done⟩
+      simp [countDeficit] at hmeasure
+      omega
     · have hpositive : 0 < d := Nat.pos_of_ne_zero hd
       have hne : current.counts ≠ target := by
         intro hcounts
@@ -973,20 +977,22 @@ lemma reachesExchange_targetHand_of_equal_sum
         rw [exchangeCounts_sum current discarded drawn hneTiles
           (by omega)]
         exact hsumCurrent
-      have hdefAfter :
-          countDeficit next.counts target < d := by
+      have hdefAfterEq :
+          countDeficit next.counts target = d - 1 := by
         dsimp [next]
         rw [countDeficit_exchange target current discarded drawn
           hdrawn hdiscarded hneTiles, hmeasure]
+      have hdefAfter : countDeficit next.counts target < d := by
         omega
-      obtain ⟨distance, hrest⟩ := ih
+      obtain ⟨distance, hdistanceRest, hrest⟩ := ih
         (countDeficit next.counts target) hdefAfter next
         hsumAfter rfl
-      refine ⟨distance + 1, ?_⟩
-      apply ReachesExchange.step
-      · exact standardTargetExchange_handStep target current discarded drawn
-          hdrawn hdiscarded hneTiles
-      · simpa [next, targetHand, exchangeHand] using hrest
+      refine ⟨distance + 1, ?_, ?_⟩
+      · omega
+      · apply ReachesExchange.step
+        · exact standardTargetExchange_handStep target current discarded drawn
+            hdrawn hdiscarded hneTiles
+        · simpa [next, targetHand, exchangeHand] using hrest
   exact aux (countDeficit before.counts target) before hsum rfl
 
 lemma complete_standard_targetHand
@@ -1010,9 +1016,9 @@ lemma reachesCompletion_standard_of_equal_sum
     (htiles :
       HasTiles (targetHand before target)
         (pairTiles pair + meldsTiles melds)) :
-    ∃ distance,
-      ReachesCompletion Complete .standard before distance := by
-  obtain ⟨distance, hexchange⟩ :=
+    ReachesCompletion Complete .standard before
+      (countDeficit before.counts target) := by
+  obtain ⟨distance, hdistance, hexchange⟩ :=
     reachesExchange_targetHand_of_equal_sum before target hsum
   have hcomplete :
       Complete .standard (targetHand before target) :=
@@ -1022,8 +1028,8 @@ lemma reachesCompletion_standard_of_equal_sum
       ReachesCompletion Complete .standard
         (targetHand before target) 0 :=
     ReachesCompletion.done hcomplete
-  exact ⟨distance,
-    ReachesExchange.toReachesCompletion hexchange hdone⟩
+  simpa only [Nat.add_zero, hdistance] using
+    ReachesExchange.toReachesCompletion hexchange hdone
 
 lemma reachesCompletion_standard_of_one_more_target_tile
     (before : Hand) (target : TileCounts)
@@ -1089,9 +1095,19 @@ lemma reachesCompletion_standard_of_one_more_target_tile
     change HasTiles (targetHand before target)
       (pairTiles pair + meldsTiles melds)
     exact htiles
-  obtain ⟨distance, hrest⟩ :=
-    reachesCompletion_standard_of_equal_sum next target pair melds
-      hsumNext hvalidNext hmeldsNext htilesNext
+  have hcomplete :
+      Complete .standard (targetHand next target) :=
+    complete_standard_targetHand next target pair melds
+      hvalidNext hmeldsNext htilesNext
+  have hdone :
+      ReachesCompletion Complete .standard
+        (targetHand next target) 0 :=
+    ReachesCompletion.done hcomplete
+  obtain ⟨distance, _, hexchange⟩ :=
+    reachesExchange_targetHand_of_equal_sum next target hsumNext
+  have hrest :
+      ReachesCompletion Complete .standard next distance := by
+    simpa using ReachesExchange.toReachesCompletion hexchange hdone
   exact ⟨distance + 1, ReachesCompletion.step hstep hrest⟩
 
 /-- A target has the required number of concealed melds for a hand. -/
@@ -2130,8 +2146,9 @@ lemma reachesCompletion_standard_of_standardTarget
         (targetHand before
           (countsOfTiles (standardTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4) :
-    ∃ distance,
-      ReachesCompletion Complete .standard before distance := by
+    ReachesCompletion Complete .standard before
+      (standardTargetDistance before pair melds) := by
+  rw [standardTargetDistance_eq_countDeficit]
   apply reachesCompletion_standard_of_equal_sum
     before
     (countsOfTiles (standardTarget pair melds))
