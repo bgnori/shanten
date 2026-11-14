@@ -2667,6 +2667,107 @@ lemma exists_isShapeShanten_standard_of_valid_standardTarget_one_more
       hvalid hmelds hminimalTarget
   exact ⟨(distance : Int) - 1, hshape⟩
 
+private def canonicalStandardPair : Tile :=
+  .honor ⟨0, by omega⟩
+
+private def canonicalStandardMelds : Nat → List Meld
+  | 0 =>
+      [ .sequence .man ⟨0, by omega⟩
+      , .sequence .pin ⟨0, by omega⟩
+      , .sequence .sou ⟨0, by omega⟩
+      , .triplet (.honor ⟨1, by omega⟩) ]
+  | 1 =>
+      [ .sequence .man ⟨0, by omega⟩
+      , .sequence .pin ⟨0, by omega⟩
+      , .sequence .sou ⟨0, by omega⟩ ]
+  | 2 =>
+      [ .sequence .man ⟨0, by omega⟩
+      , .sequence .pin ⟨0, by omega⟩ ]
+  | 3 => [ .sequence .man ⟨0, by omega⟩ ]
+  | _ => []
+
+private lemma canonicalStandardMelds_length
+    (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4) :
+    (canonicalStandardMelds fixedMelds).length + fixedMelds = 4 := by
+  have hcases :
+      fixedMelds = 0 ∨ fixedMelds = 1 ∨ fixedMelds = 2 ∨
+        fixedMelds = 3 ∨ fixedMelds = 4 := by omega
+  rcases hcases with h | h | h | h | h
+  all_goals subst fixedMelds <;> simp [canonicalStandardMelds]
+
+private lemma canonicalStandardTarget_validCounts
+    (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4) :
+    ∀ tile,
+      (standardTarget canonicalStandardPair
+        (canonicalStandardMelds fixedMelds)).count tile ≤ 4 := by
+  intro tile
+  have hcases :
+      fixedMelds = 0 ∨ fixedMelds = 1 ∨ fixedMelds = 2 ∨
+        fixedMelds = 3 ∨ fixedMelds = 4 := by omega
+  rcases hcases with h | h | h | h | h
+  all_goals subst fixedMelds
+  all_goals
+    cases tile with
+    | suited suit rank =>
+        cases suit <;> fin_cases rank <;>
+          simp [canonicalStandardPair, canonicalStandardMelds,
+            standardTarget, pairTiles, meldsTiles, meldTiles]
+    | honor rank =>
+        fin_cases rank <;>
+          simp [canonicalStandardPair, canonicalStandardMelds,
+            standardTarget, pairTiles, meldsTiles, meldTiles]
+
+lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+    (hand : Hand) (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
+    ∃ value : Int, IsShapeShanten hand .standard value := by
+  have hfixed : hand.fixedMelds ≤ 4 := by omega
+  have hmelds :=
+    canonicalStandardMelds_length hand.fixedMelds hfixed
+  have hvalid :
+      ValidCounts
+        (targetHand hand
+          (countsOfTiles
+            (standardTarget canonicalStandardPair
+              (canonicalStandardMelds hand.fixedMelds)))) := by
+    intro tile
+    change
+      (standardTarget canonicalStandardPair
+        (canonicalStandardMelds hand.fixedMelds)).count tile ≤ 4
+    exact canonicalStandardTarget_validCounts
+      hand.fixedMelds hfixed tile
+  have hcard :
+      (standardTarget canonicalStandardPair
+        (canonicalStandardMelds hand.fixedMelds)).card =
+        14 - 3 * hand.fixedMelds := by
+    rw [standardTarget, Multiset.card_add, pairTiles_card,
+      meldsTiles_card]
+    omega
+  have hsum :
+      (∑ tile : Tile,
+        countsOfTiles
+          (standardTarget canonicalStandardPair
+            (canonicalStandardMelds hand.fixedMelds)) tile) =
+        (∑ tile : Tile, hand.counts tile) + 1 := by
+    calc
+      _ = (standardTarget canonicalStandardPair
+          (canonicalStandardMelds hand.fixedMelds)).card := by
+        exact countsOfTiles_sum_eq_card _
+      _ = tileCount hand + 1 := by omega
+      _ = (∑ tile : Tile, hand.counts tile) + 1 := by rfl
+  exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+    hand hbeforeValid
+    ⟨canonicalStandardPair, canonicalStandardMelds hand.fixedMelds,
+      hmelds, hsum, hvalid⟩
+
+lemma exists_isShapeShanten_standard_of_thirteenTileHand
+    (hand : Hand) (hthirteen : IsThirteenTileHand hand) :
+    ∃ value : Int, IsShapeShanten hand .standard value := by
+  rcases hthirteen with ⟨hfixed, hcount, hvalid⟩
+  apply exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+    hand hvalid
+  rw [hfixed, hcount]
+
 lemma StandardBlockDecomposition.exists_isShapeShanten
     {hand : Hand} (decomposition : StandardBlockDecomposition hand)
     (hbeforeValid : ValidCounts hand)
