@@ -2268,6 +2268,90 @@ lemma mem_standardTargetCostStatesDP_iff
     refine ⟨state.1, htiles, ?_⟩
     exact Prod.ext rfl hcost.symm
 
+lemma countsOfTiles_add (tiles extra : Multiset Tile) :
+    countsOfTiles (tiles + extra) =
+      countsOfTiles tiles + countsOfTiles extra := by
+  funext tile
+  simp [countsOfTiles, Multiset.count_add]
+
+lemma countDeficit_tiles_add_mono
+    (current : TileCounts) (tiles extra : Multiset Tile) :
+    countDeficit current (countsOfTiles tiles) ≤
+      countDeficit current (countsOfTiles (tiles + extra)) := by
+  unfold countDeficit
+  apply Finset.sum_le_sum
+  intro tile _
+  rw [countsOfTiles_add]
+  simp only [Pi.add_apply]
+  omega
+
+/-- Extend a target state and add only the newly incurred deficit. -/
+def standardCostStateAdd (hand : Hand)
+    (state : Multiset Tile × Nat) (extra : Multiset Tile) :
+    Multiset Tile × Nat :=
+  let tiles := state.1 + extra
+  (tiles,
+    state.2 + (countDeficit hand.counts (countsOfTiles tiles) -
+      countDeficit hand.counts (countsOfTiles state.1)))
+
+lemma standardCostStateAdd_cost
+    (hand : Hand) (state : Multiset Tile × Nat) (extra : Multiset Tile)
+    (hcost :
+      state.2 = countDeficit hand.counts (countsOfTiles state.1)) :
+    (standardCostStateAdd hand state extra).2 =
+      countDeficit hand.counts
+        (countsOfTiles ((standardCostStateAdd hand state extra).1)) := by
+  unfold standardCostStateAdd
+  dsimp only
+  rw [hcost]
+  have hmono := countDeficit_tiles_add_mono
+    hand.counts state.1 extra
+  omega
+
+def standardMeldCostStatesDP (hand : Hand) (initialTiles : Multiset Tile) :
+    Nat → Finset (Multiset Tile × Nat)
+  | 0 =>
+      Finset.filter
+        (fun state => validTileMultisetBool state.1 = true)
+        ({(initialTiles,
+            countDeficit hand.counts (countsOfTiles initialTiles))} :
+          Finset (Multiset Tile × Nat))
+  | meldCount + 1 =>
+      (Finset.univ.biUnion fun meld =>
+        (standardMeldCostStatesDP hand initialTiles meldCount).image
+          (fun state => standardCostStateAdd hand state (meldTiles meld)))
+        |>.filter (fun state => validTileMultisetBool state.1 = true)
+
+lemma standardMeldCostStatesDP_cost
+    (hand : Hand) (initialTiles : Multiset Tile) (meldCount : Nat)
+    (state : Multiset Tile × Nat)
+    (hstate : state ∈ standardMeldCostStatesDP hand initialTiles meldCount) :
+    state.2 = countDeficit hand.counts (countsOfTiles state.1) := by
+  induction meldCount generalizing state with
+  | zero =>
+      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+        Finset.mem_singleton] at hstate
+      rw [hstate.1]
+  | succ meldCount ih =>
+      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+        Finset.mem_biUnion, Finset.mem_univ, true_and,
+        Finset.mem_image] at hstate
+      rcases hstate with ⟨⟨meld, previous, hprevious, heq⟩, _⟩
+      have hpreviousCost := ih previous hprevious
+      have hnextCost :=
+        standardCostStateAdd_cost hand previous (meldTiles meld)
+          hpreviousCost
+      calc
+        state.2 =
+            (standardCostStateAdd hand previous (meldTiles meld)).2 :=
+          (congrArg Prod.snd heq).symm
+        _ = countDeficit hand.counts
+            (countsOfTiles
+              (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+          hnextCost
+        _ = countDeficit hand.counts (countsOfTiles state.1) := by
+          rw [congrArg Prod.fst heq]
+
 def validStandardTargetDistances (hand : Hand) :
     Finset Nat :=
   (standardTargetCostStatesDP hand).image Prod.snd
