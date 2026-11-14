@@ -9,6 +9,8 @@ The Lean4-first verification and Go implementation plan is documented in
 [docs/SHANTEN_LEAN4_PLAN.md](docs/SHANTEN_LEAN4_PLAN.md).
 The planned Lean source decomposition is documented in
 [docs/SHANTEN_LEAN_STRUCTURE.md](docs/SHANTEN_LEAN_STRUCTURE.md).
+Terminology shared by the Go contract, Mahjong model, and Lean proofs is documented
+in [docs/GLOSSARY.md](docs/GLOSSARY.md).
 
 ## Input
 
