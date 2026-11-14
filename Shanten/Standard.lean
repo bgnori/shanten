@@ -2130,21 +2130,19 @@ lemma exists_min_validStandardTargetDistance
         otherDistance ∈ validStandardTargetDistances hand →
           distance ≤ otherDistance := by
   classical
-  let candidateDistance : Nat → Prop :=
-    fun distance => distance ∈ validStandardTargetDistances hand
-  have hexists : ∃ distance, candidateDistance distance := by
+  let distances := validStandardTargetDistances hand
+  have hnonempty : distances.Nonempty := by
     obtain ⟨pair, melds, hmelds, hvalid⟩ := hcandidate
     refine ⟨standardTargetDistance hand pair melds, ?_⟩
     exact (mem_validStandardTargetDistances_iff
       hand hfixed (standardTargetDistance hand pair melds)).2
       ⟨pair, melds, hmelds, hvalid, rfl⟩
-  let distance := Nat.find hexists
+  let distance := distances.min' hnonempty
   refine ⟨distance, ?_, ?_⟩
-  · change candidateDistance distance
-    exact Nat.find_spec hexists
+  · change distance ∈ distances
+    exact Finset.min'_mem distances hnonempty
   · intro otherDistance hother
-    change Nat.find hexists ≤ otherDistance
-    exact Nat.find_min' hexists hother
+    exact Finset.min'_le distances otherDistance hother
 
 lemma exists_standardTarget_distance_le_of_reachesCompletion
     (before : Hand) (distance : Nat)
