@@ -817,6 +817,81 @@ lemma countDeficit_exchange
     (∑ tile : Tile, deficit tile) - 1
   exact hsum
 
+lemma countDeficit_handStep_le
+    (before after : Hand) (target : TileCounts)
+    (hstep : HandStep before after) :
+    countDeficit before.counts target ≤
+      countDeficit after.counts target + 1 := by
+  have finish (drawn : Tile)
+      (hpoint : ∀ tile,
+        target tile - before.counts tile ≤
+          target tile - after.counts tile +
+            (if tile = drawn then 1 else 0)) :
+      countDeficit before.counts target ≤
+        countDeficit after.counts target + 1 := by
+    have hsum := Finset.sum_le_sum (s := Finset.univ)
+      (fun tile _ => hpoint tile)
+    calc
+      countDeficit before.counts target =
+          ∑ tile : Tile, (target tile - before.counts tile) := rfl
+      _ ≤ ∑ tile : Tile,
+          (target tile - after.counts tile +
+            (if tile = drawn then 1 else 0)) := hsum
+      _ = countDeficit after.counts target + 1 := by
+        simp [countDeficit, Finset.sum_add_distrib]
+  rcases hstep.2 with ⟨drawn, _, hcounts⟩ |
+    ⟨discarded, drawn, hne, hpositive, hcounts⟩
+  · apply finish drawn
+    intro tile
+    have hcount := hcounts tile
+    by_cases hdrawn : tile = drawn
+    · subst tile
+      simp at hcount
+      simp
+      omega
+    · simp [hdrawn] at hcount
+      simp [hdrawn]
+      omega
+  · apply finish drawn
+    intro tile
+    by_cases hdiscarded : tile = discarded
+    · subst tile
+      have hcount := hcounts discarded
+      simp [hne] at hcount
+      simp [hne]
+      omega
+    · by_cases hdrawn : tile = drawn
+      · subst tile
+        have hcount := hcounts drawn
+        simp [hne, Ne.symm hne] at hcount
+        simp [hne, Ne.symm hne]
+        omega
+      · have hcount := hcounts tile
+        simp [hdiscarded, hdrawn] at hcount
+        simp [hdrawn]
+        omega
+
+lemma exists_complete_standard_with_deficit_le
+    (before : Hand) (distance : Nat)
+    (hreach : ReachesCompletion Complete .standard before distance) :
+    ∃ after,
+      Complete .standard after ∧
+        countDeficit before.counts after.counts ≤ distance := by
+  induction distance generalizing before with
+  | zero =>
+      cases hreach with
+      | done hcomplete =>
+          exact ⟨before, hcomplete, by simp [countDeficit]⟩
+  | succ distance ih =>
+      cases hreach with
+      | @step hand next distance hstep hrest =>
+          obtain ⟨after, hcomplete, hbound⟩ :=
+            ih next hrest
+          refine ⟨after, hcomplete, ?_⟩
+          have hstepBound :=
+            countDeficit_handStep_le before next after.counts hstep
+          omega
+
 def targetHand (before : Hand) (target : TileCounts) : Hand :=
   { counts := target
     fixedMelds := before.fixedMelds }
