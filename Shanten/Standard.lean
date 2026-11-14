@@ -2022,6 +2022,130 @@ lemma standardTargetDistance_eq_countDeficit
         (countsOfTiles (standardTarget pair melds)) := by
   rfl
 
+def standardMeldListsOfLength : Nat → Finset (List Meld)
+  | 0 => {[]}
+  | length + 1 =>
+      Finset.univ.biUnion fun meld =>
+        (standardMeldListsOfLength length).image (meld :: ·)
+
+lemma mem_standardMeldListsOfLength_iff
+    (length : Nat) (melds : List Meld) :
+    melds ∈ standardMeldListsOfLength length ↔ melds.length = length := by
+  induction length generalizing melds with
+  | zero =>
+      simp [standardMeldListsOfLength]
+  | succ length ih =>
+      simp only [standardMeldListsOfLength, Finset.mem_biUnion,
+        Finset.mem_univ, true_and, Finset.mem_image]
+      constructor
+      · rintro ⟨head, tail, htail, rfl⟩
+        have hlength := ih tail |>.1 htail
+        simp only [List.length_cons]
+        omega
+      · intro hlength
+        cases melds with
+        | nil =>
+            simp at hlength
+        | cons head tail =>
+            simp only [List.length_cons] at hlength
+            refine ⟨head, tail, ?_, rfl⟩
+            exact ih tail |>.2 (by omega)
+
+def standardTargetConfigurations (fixedMelds : Nat) :
+    Finset (Tile × List Meld) :=
+  Finset.univ ×ˢ standardMeldListsOfLength (4 - fixedMelds)
+
+lemma mem_standardTargetConfigurations_iff
+    (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
+    (pair : Tile) (melds : List Meld) :
+    (pair, melds) ∈ standardTargetConfigurations fixedMelds ↔
+      melds.length + fixedMelds = 4 := by
+  rw [standardTargetConfigurations, Finset.mem_product]
+  simp only [Finset.mem_univ, true_and,
+    mem_standardMeldListsOfLength_iff]
+  omega
+
+noncomputable def validStandardTargetConfigurations (hand : Hand) :
+    Finset (Tile × List Meld) :=
+  by
+    classical
+    exact (standardTargetConfigurations hand.fixedMelds).filter
+      (fun candidate =>
+        ValidCounts
+          (targetHand hand
+            (countsOfTiles
+              (standardTarget candidate.1 candidate.2))))
+
+lemma mem_validStandardTargetConfigurations_iff
+    (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
+    (pair : Tile) (melds : List Meld) :
+    (pair, melds) ∈ validStandardTargetConfigurations hand ↔
+      melds.length + hand.fixedMelds = 4 ∧
+      ValidCounts
+        (targetHand hand
+          (countsOfTiles (standardTarget pair melds))) := by
+  classical
+  rw [validStandardTargetConfigurations, Finset.mem_filter,
+    mem_standardTargetConfigurations_iff
+      hand.fixedMelds hfixed pair melds]
+
+noncomputable def validStandardTargetDistances (hand : Hand) :
+    Finset Nat :=
+  (validStandardTargetConfigurations hand).image fun candidate =>
+    standardTargetDistance hand candidate.1 candidate.2
+
+lemma mem_validStandardTargetDistances_iff
+    (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) (distance : Nat) :
+    distance ∈ validStandardTargetDistances hand ↔
+      ∃ pair melds,
+        melds.length + hand.fixedMelds = 4 ∧
+        ValidCounts
+          (targetHand hand
+            (countsOfTiles (standardTarget pair melds))) ∧
+        standardTargetDistance hand pair melds = distance := by
+  classical
+  unfold validStandardTargetDistances
+  simp only [Finset.mem_image]
+  constructor
+  · rintro ⟨⟨pair, melds⟩, hcandidate, hdistance⟩
+    have hvalid :=
+      (mem_validStandardTargetConfigurations_iff
+        hand hfixed pair melds).mp hcandidate
+    exact ⟨pair, melds, hvalid.1, hvalid.2, hdistance⟩
+  · rintro ⟨pair, melds, hmelds, hvalid, hdistance⟩
+    refine ⟨(pair, melds), ?_, hdistance⟩
+    exact (mem_validStandardTargetConfigurations_iff
+      hand hfixed pair melds).mpr ⟨hmelds, hvalid⟩
+
+lemma exists_min_validStandardTargetDistance
+    (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
+    (hcandidate :
+      ∃ pair melds,
+        melds.length + hand.fixedMelds = 4 ∧
+        ValidCounts
+          (targetHand hand
+            (countsOfTiles (standardTarget pair melds)))) :
+    ∃ distance, distance ∈ validStandardTargetDistances hand ∧
+      ∀ otherDistance,
+        otherDistance ∈ validStandardTargetDistances hand →
+          distance ≤ otherDistance := by
+  classical
+  let candidateDistance : Nat → Prop :=
+    fun distance => distance ∈ validStandardTargetDistances hand
+  have hexists : ∃ distance, candidateDistance distance := by
+    obtain ⟨pair, melds, hmelds, hvalid⟩ := hcandidate
+    refine ⟨standardTargetDistance hand pair melds, ?_⟩
+    exact (mem_validStandardTargetDistances_iff
+      hand hfixed (standardTargetDistance hand pair melds)).2
+      ⟨pair, melds, hmelds, hvalid, rfl⟩
+  let distance := Nat.find hexists
+  refine ⟨distance, ?_, ?_⟩
+  · change candidateDistance distance
+    exact Nat.find_spec hexists
+  · intro otherDistance hother
+    change Nat.find hexists ≤ otherDistance
+    exact Nat.find_min' hexists hother
+
 lemma exists_standardTarget_distance_le_of_reachesCompletion
     (before : Hand) (distance : Nat)
     (hreach : ReachesCompletion Complete .standard before distance) :
@@ -2886,10 +3010,16 @@ private lemma canonicalStandardTarget_validCounts
           simp [canonicalStandardPair, canonicalStandardMelds,
             standardTarget, pairTiles, meldsTiles, meldTiles]
 
-lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+set_option maxHeartbeats 1000000 in
+lemma exists_standardShanten_as_min_validTargetDistance
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
-    ∃ value : Int, IsShapeShanten hand .standard value := by
+    ∃ distance,
+      distance ∈ validStandardTargetDistances hand ∧
+      (∀ otherDistance,
+        otherDistance ∈ validStandardTargetDistances hand →
+          distance ≤ otherDistance) ∧
+      IsShapeShanten hand .standard ((distance : Int) - 1) := by
   have hfixed : hand.fixedMelds ≤ 4 := by omega
   have hmelds :=
     canonicalStandardMelds_length hand.fixedMelds hfixed
@@ -2905,29 +3035,52 @@ lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
         (canonicalStandardMelds hand.fixedMelds)).count tile ≤ 4
     exact canonicalStandardTarget_validCounts
       hand.fixedMelds hfixed tile
-  have hcard :
-      (standardTarget canonicalStandardPair
-        (canonicalStandardMelds hand.fixedMelds)).card =
-        14 - 3 * hand.fixedMelds := by
-    rw [standardTarget, Multiset.card_add, pairTiles_card,
-      meldsTiles_card]
-    omega
-  have hsum :
-      (∑ tile : Tile,
-        countsOfTiles
-          (standardTarget canonicalStandardPair
-            (canonicalStandardMelds hand.fixedMelds)) tile) =
-        (∑ tile : Tile, hand.counts tile) + 1 := by
+  obtain ⟨distance, hdistanceMem, hminimalDistance⟩ :=
+    exists_min_validStandardTargetDistance hand hfixed
+      ⟨canonicalStandardPair, canonicalStandardMelds hand.fixedMelds,
+        hmelds, hvalid⟩
+  obtain ⟨pair, melds, htargetMelds, htargetValid, htargetDistance⟩ :=
+    (mem_validStandardTargetDistances_iff
+      hand hfixed distance).mp hdistanceMem
+  have hsum :=
+    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+      hand hstanding pair melds htargetMelds
+  have hminimalTarget :
+      ∀ otherPair otherMelds,
+        otherMelds.length + hand.fixedMelds = 4 →
+          ValidCounts
+            (targetHand hand
+              (countsOfTiles (standardTarget otherPair otherMelds))) →
+          standardTargetDistance hand pair melds ≤
+            standardTargetDistance hand otherPair otherMelds := by
+    intro otherPair otherMelds hotherMelds hotherValid
+    have hotherDistanceMem :
+        standardTargetDistance hand otherPair otherMelds ∈
+          validStandardTargetDistances hand :=
+      (mem_validStandardTargetDistances_iff
+        hand hfixed
+        (standardTargetDistance hand otherPair otherMelds)).mpr
+        ⟨otherPair, otherMelds, hotherMelds, hotherValid, rfl⟩
     calc
-      _ = (standardTarget canonicalStandardPair
-          (canonicalStandardMelds hand.fixedMelds)).card := by
-        exact countsOfTiles_sum_eq_card _
-      _ = tileCount hand + 1 := by omega
-      _ = (∑ tile : Tile, hand.counts tile) + 1 := by rfl
-  exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
-    hand hbeforeValid
-    ⟨canonicalStandardPair, canonicalStandardMelds hand.fixedMelds,
-      hmelds, hsum, hvalid⟩
+      standardTargetDistance hand pair melds = distance :=
+        htargetDistance
+      _ ≤ standardTargetDistance hand otherPair otherMelds :=
+        hminimalDistance _ hotherDistanceMem
+  have hshape :
+      IsShapeShanten hand .standard ((distance : Int) - 1) :=
+    isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+      distance hand pair melds htargetDistance hsum hbeforeValid
+      htargetValid htargetMelds hminimalTarget
+  exact ⟨distance, hdistanceMem, hminimalDistance, hshape⟩
+
+lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+    (hand : Hand) (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
+    ∃ value : Int, IsShapeShanten hand .standard value := by
+  obtain ⟨distance, _, _, hshape⟩ :=
+    exists_standardShanten_as_min_validTargetDistance
+      hand hbeforeValid hstanding
+  exact ⟨(distance : Int) - 1, hshape⟩
 
 lemma exists_isShapeShanten_standard_of_thirteenTileHand
     (hand : Hand) (hthirteen : IsThirteenTileHand hand) :
