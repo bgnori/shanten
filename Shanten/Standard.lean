@@ -1884,10 +1884,13 @@ lemma exists_standardTarget_distance_le_of_reachesCompletion
     (hreach : ReachesCompletion Complete .standard before distance) :
     ∃ pair melds,
       melds.length + before.fixedMelds = 4 ∧
+        ValidCounts
+          (targetHand before
+            (countsOfTiles (standardTarget pair melds))) ∧
         standardTargetDistance before pair melds ≤ distance := by
   obtain ⟨after, hcomplete, hfixed, hdeficit⟩ :=
     exists_complete_standard_with_deficit_le before distance hreach
-  rcases hcomplete with ⟨_, pair, melds, hmelds, htiles⟩
+  rcases hcomplete with ⟨hvalidAfter, pair, melds, hmelds, htiles⟩
   have hcounts :
       after.counts =
         countsOfTiles (standardTarget pair melds) := by
@@ -1895,7 +1898,15 @@ lemma exists_standardTarget_distance_le_of_reachesCompletion
     change after.counts tile =
       (standardTarget pair melds).count tile
     exact htiles tile
-  refine ⟨pair, melds, ?_, ?_⟩
+  have hvalidTarget :
+      ValidCounts
+        (targetHand before
+          (countsOfTiles (standardTarget pair melds))) := by
+    intro tile
+    change (countsOfTiles (standardTarget pair melds)) tile ≤ 4
+    rw [← hcounts]
+    exact hvalidAfter tile
+  refine ⟨pair, melds, ?_, hvalidTarget, ?_⟩
   · rw [← hfixed]
     exact hmelds
   · rw [standardTargetDistance_eq_countDeficit]
@@ -1908,15 +1919,18 @@ lemma no_shorter_standard_completion_of_minimal_standardTargetDistance
     (hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + before.fixedMelds = 4 →
+          ValidCounts
+            (targetHand before
+              (countsOfTiles (standardTarget otherPair otherMelds))) →
           standardTargetDistance before pair melds ≤
             standardTargetDistance before otherPair otherMelds) :
     ∀ smaller : Nat, smaller < distance →
       ¬ ReachesCompletion Complete .standard before smaller := by
   intro smaller hsmaller hreach
-  obtain ⟨otherPair, otherMelds, hmelds, hotherDistance⟩ :=
+  obtain ⟨otherPair, otherMelds, hmelds, hvalid, hotherDistance⟩ :=
     exists_standardTarget_distance_le_of_reachesCompletion
       before smaller hreach
-  have hminimal := hminimalTarget otherPair otherMelds hmelds
+  have hminimal := hminimalTarget otherPair otherMelds hmelds hvalid
   omega
 
 lemma standardTargetDistance_eq_zero_iff
@@ -2296,6 +2310,9 @@ lemma isShapeShanten_standard_of_minimal_standardTargetDistance
     (hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + before.fixedMelds = 4 →
+          ValidCounts
+            (targetHand before
+              (countsOfTiles (standardTarget otherPair otherMelds))) →
           standardTargetDistance before pair melds ≤
             standardTargetDistance before otherPair otherMelds) :
     IsShapeShanten before .standard ((distance : Int) - 1) := by
@@ -2303,6 +2320,83 @@ lemma isShapeShanten_standard_of_minimal_standardTargetDistance
     distance before pair melds hdistance hsum hvalid hmelds
   exact no_shorter_standard_completion_of_minimal_standardTargetDistance
     before pair melds distance hdistance hminimalTarget
+
+private lemma nat_find_le_of_mem
+    (predicate : Nat → Prop) [DecidablePred predicate]
+    (hexists : ∃ n, predicate n)
+    {value : Nat} (hvalue : predicate value) :
+    Nat.find hexists ≤ value :=
+  Nat.find_min' hexists hvalue
+
+set_option maxHeartbeats 1000000 in
+lemma exists_isShapeShanten_standard_of_valid_standardTarget
+    (before : Hand)
+    (hcandidate :
+      ∃ pair melds,
+        melds.length + before.fixedMelds = 4 ∧
+          (∑ tile : Tile, before.counts tile) =
+            ∑ tile : Tile, (standardTarget pair melds).count tile ∧
+          ValidCounts
+            (targetHand before
+              (countsOfTiles (standardTarget pair melds)))) :
+    ∃ value : Int, IsShapeShanten before .standard value := by
+  classical
+  let candidateDistance : Nat → Prop := fun distance =>
+    ∃ pair melds,
+      melds.length + before.fixedMelds = 4 ∧
+        (∑ tile : Tile, before.counts tile) =
+          ∑ tile : Tile, (standardTarget pair melds).count tile ∧
+        ValidCounts
+          (targetHand before
+            (countsOfTiles (standardTarget pair melds))) ∧
+        standardTargetDistance before pair melds = distance
+  have hexists : ∃ distance, candidateDistance distance := by
+    obtain ⟨pair, melds, hmelds, hsum, hvalid⟩ := hcandidate
+    exact ⟨standardTargetDistance before pair melds,
+      pair, melds, hmelds, hsum, hvalid, rfl⟩
+  let distance := Nat.find hexists
+  obtain ⟨pair, melds, hmelds, hsum, hvalid, hdistance⟩ :=
+    Nat.find_spec hexists
+  have hminimalTarget :
+      ∀ otherPair otherMelds,
+        otherMelds.length + before.fixedMelds = 4 →
+          ValidCounts
+            (targetHand before
+              (countsOfTiles (standardTarget otherPair otherMelds))) →
+          standardTargetDistance before pair melds ≤
+            standardTargetDistance before otherPair otherMelds := by
+    intro otherPair otherMelds hotherMelds hotherValid
+    have hlength : melds.length = otherMelds.length := by omega
+    have hsumOther :
+        (∑ tile : Tile, before.counts tile) =
+          ∑ tile : Tile, (standardTarget otherPair otherMelds).count tile := by
+      calc
+        (∑ tile : Tile, before.counts tile) =
+            ∑ tile : Tile, (standardTarget pair melds).count tile := hsum
+        _ = (standardTarget pair melds).card := by
+          simpa [countsOfTiles] using
+            (countsOfTiles_sum_eq_card (standardTarget pair melds))
+        _ = (standardTarget otherPair otherMelds).card := by
+          simp [standardTarget, Multiset.card_add, pairTiles_card,
+            meldsTiles_card, hlength]
+        _ = ∑ tile : Tile, (standardTarget otherPair otherMelds).count tile := by
+          symm
+          simpa [countsOfTiles] using
+            (countsOfTiles_sum_eq_card (standardTarget otherPair otherMelds))
+    have hotherCandidate :
+        candidateDistance (standardTargetDistance before otherPair otherMelds) :=
+      ⟨otherPair, otherMelds, hotherMelds, hsumOther, hotherValid, rfl⟩
+    calc
+      standardTargetDistance before pair melds = distance := hdistance
+      _ ≤ standardTargetDistance before otherPair otherMelds := by
+        change Nat.find hexists ≤
+          standardTargetDistance before otherPair otherMelds
+        exact nat_find_le_of_mem candidateDistance hexists hotherCandidate
+  have hshape :
+      IsShapeShanten before .standard ((distance : Int) - 1) :=
+    isShapeShanten_standard_of_minimal_standardTargetDistance
+      distance before pair melds hdistance hsum hvalid hmelds hminimalTarget
+  exact ⟨(distance : Int) - 1, hshape⟩
 
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
