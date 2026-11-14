@@ -2242,10 +2242,43 @@ lemma mem_standardTargetTileStatesDP_iff
         (meldsTiles melds)).2
         ⟨melds, by omega, rfl, hmeldValid⟩
 
+def standardTargetCostStatesDP (hand : Hand) :
+    Finset (Multiset Tile × Nat) :=
+  (standardTargetTileStatesDP hand.fixedMelds).image
+    (fun tiles =>
+      (tiles, countDeficit hand.counts (countsOfTiles tiles)))
+
+lemma mem_standardTargetCostStatesDP_iff
+    (hand : Hand) (state : Multiset Tile × Nat) :
+    state ∈ standardTargetCostStatesDP hand ↔
+      state.1 ∈ standardTargetTileStatesDP hand.fixedMelds ∧
+      state.2 = countDeficit hand.counts (countsOfTiles state.1) := by
+  unfold standardTargetCostStatesDP
+  simp only [Finset.mem_image]
+  constructor
+  · rintro ⟨tiles, htiles, heq⟩
+    have hfst := congrArg Prod.fst heq
+    have hsnd := congrArg Prod.snd heq
+    refine ⟨?_, ?_⟩
+    · rw [← hfst]
+      exact htiles
+    · rw [← hfst]
+      exact hsnd.symm
+  · rintro ⟨htiles, hcost⟩
+    refine ⟨state.1, htiles, ?_⟩
+    exact Prod.ext rfl hcost.symm
+
 def validStandardTargetDistances (hand : Hand) :
     Finset Nat :=
-  (standardTargetTileStatesDP hand.fixedMelds).image
-    (fun tiles => countDeficit hand.counts (countsOfTiles tiles))
+  (standardTargetCostStatesDP hand).image Prod.snd
+
+lemma standardTargetCostDistances_eq_tileDistances (hand : Hand) :
+    validStandardTargetDistances hand =
+      (standardTargetTileStatesDP hand.fixedMelds).image
+        (fun tiles => countDeficit hand.counts (countsOfTiles tiles)) := by
+  ext distance
+  simp [validStandardTargetDistances, standardTargetCostStatesDP,
+    Finset.image_image]
 
 /-- Exhaustive target-state search; equal tile multisets are deduplicated at each meld count. -/
 def standardTargetMinimumSearch (hand : Hand) : Option Int :=
@@ -2265,7 +2298,7 @@ lemma mem_validStandardTargetDistances_iff
             (countsOfTiles (standardTarget pair melds))) ∧
         standardTargetDistance hand pair melds = distance := by
   classical
-  unfold validStandardTargetDistances
+  rw [standardTargetCostDistances_eq_tileDistances]
   simp only [Finset.mem_image]
   constructor
   · rintro ⟨tiles, htiles, hdistance⟩
