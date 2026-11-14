@@ -2667,6 +2667,52 @@ lemma exists_isShapeShanten_standard_of_valid_standardTarget_one_more
       hvalid hmelds hminimalTarget
   exact ⟨(distance : Int) - 1, hshape⟩
 
+lemma StandardBlockDecomposition.exists_isShapeShanten
+    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
+    (hbeforeValid : ValidCounts hand)
+    (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
+    ∃ value : Int, IsShapeShanten hand .standard value := by
+  let melds :=
+    decomposition.melds ++
+      taatsuCompletionMelds decomposition.taatsus
+  have htarget :
+      standardTarget decomposition.pair melds =
+        decomposition.completedTarget := by
+    rw [StandardBlockDecomposition.completedTarget_eq]
+    rfl
+  have hmelds :
+      melds.length + hand.fixedMelds = 4 := by
+    dsimp [melds]
+    exact decomposition.completedMeldCount
+  have htargetCard :
+      (standardTarget decomposition.pair melds).card =
+        tileCount hand + 1 := by
+    rw [htarget, StandardBlockDecomposition.completedTarget_eq]
+    simp [Multiset.card_add, pairTiles_card, meldsTiles_card,
+      List.length_append, taatsuCompletionMelds_length]
+    have hblocks := decomposition.blocks
+    omega
+  have hsum :
+      (∑ tile : Tile,
+        countsOfTiles (standardTarget decomposition.pair melds) tile) =
+        (∑ tile : Tile, hand.counts tile) + 1 := by
+    calc
+      _ = (standardTarget decomposition.pair melds).card := by
+        exact countsOfTiles_sum_eq_card
+          (standardTarget decomposition.pair melds)
+      _ = tileCount hand + 1 := htargetCard
+      _ = (∑ tile : Tile, hand.counts tile) + 1 := by
+        rfl
+  have hvalid :
+      ValidCounts
+        (targetHand hand
+          (countsOfTiles (standardTarget decomposition.pair melds))) := by
+    rw [htarget]
+    exact decomposition.validCounts_completedTarget
+  exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+    hand hbeforeValid
+    ⟨decomposition.pair, melds, hmelds, hsum, hvalid⟩
+
 lemma standardTarget_count_le_stateHistoryTiles
     (state : StandardSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
@@ -2799,5 +2845,59 @@ lemma complete_standard_of_constrainedBlockSearch
       before fuel state hreachable)
     hcomplete
     (reachableWithinWithCopyLimit_copyLimit before fuel state hreachable)
+
+lemma exists_isShapeShanten_standard_of_constrainedBlockSearch
+    (before : Hand) (hbeforeValid : ValidCounts before)
+    (hstanding : tileCount before + 3 * before.fixedMelds = 13)
+    (fuel : Nat) (state : StandardSearchState)
+    (hreachable : reachableWithinWithCopyLimit before fuel state)
+    (hcomplete : IsStandardBlockSearchComplete before state) :
+    ∃ value : Int, IsShapeShanten before .standard value := by
+  have hreachable' :
+      reachableWithin before fuel state :=
+    reachableWithinWithCopyLimit_to_reachableWithin
+      before fuel state hreachable
+  have hcopy :
+      CompletionRespectsCopyLimit state :=
+    reachableWithinWithCopyLimit_copyLimit before fuel state hreachable
+  rcases hcomplete with ⟨hcount, hpair⟩
+  cases hstatePair : state.pair with
+  | none =>
+      simp [hstatePair] at hpair
+  | some pair =>
+      let melds := completedMeldsForState state
+      have hmelds :
+          melds.length + before.fixedMelds = 4 := by
+        dsimp [melds]
+        exact completedMeldsForState_hasMeldCount
+          before fuel state hreachable' hcount
+      have htarget :
+          standardTarget pair melds =
+            completedTargetForState state pair := by
+        rfl
+      have hsum' :=
+        completedTargetForState_sum_of_blockCount
+          before fuel state hreachable' hcount pair
+      have hsum :
+          (∑ tile : Tile,
+            countsOfTiles (standardTarget pair melds) tile) =
+            (∑ tile : Tile, before.counts tile) + 1 := by
+        calc
+          _ = 14 - 3 * before.fixedMelds := by
+            rw [htarget]
+            exact hsum'
+          _ = tileCount before + 1 := by
+            omega
+          _ = (∑ tile : Tile, before.counts tile) + 1 := by
+            rfl
+      have hvalid :
+          ValidCounts
+            (targetHand before (countsOfTiles (standardTarget pair melds))) := by
+        rw [htarget]
+        exact validCounts_completedTarget_of_copyLimit
+          before fuel state hreachable' hcopy pair hstatePair
+      exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+        before hbeforeValid
+        ⟨pair, melds, hmelds, hsum, hvalid⟩
 
 end Shanten
