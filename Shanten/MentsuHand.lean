@@ -3848,4 +3848,26 @@ lemma exists_isShapeShanten_mentsuHand_of_constrainedBlockSearch
         before hbeforeValid
         ⟨pair, melds, hmelds, hsum, hvalid⟩
 
+lemma exists_isShapeShanten_mentsuHand_of_constrainedBlockSearchOnTiles
+    (before : Hand) (hbeforeValid : ValidCounts before)
+    (hstanding : tileCount before + 3 * before.fixedMelds = 13)
+    (tiles : List Tile)
+    (hsearch : MentsuHandBlockSearchOnTilesWithCopyLimit before tiles) :
+    ∃ value : Int, IsShapeShanten before .mentsuHand value := by
+  rcases hsearch with ⟨state, hreachable, hcomplete⟩
+  exact exists_isShapeShanten_mentsuHand_of_constrainedBlockSearch
+    before hbeforeValid hstanding tiles.length state
+    (reachableOnTilesWithCopyLimit_to_reachableWithinWithCopyLimit
+        before tiles state hreachable)
+    hcomplete
+
+lemma exists_isShapeShanten_mentsuHand_of_constrainedBlockSearchOnTileOrder
+    (before : Hand) (hbeforeValid : ValidCounts before)
+    (hstanding : tileCount before + 3 * before.fixedMelds = 13)
+    (hsearch :
+        MentsuHandBlockSearchOnTileOrderWithCopyLimit before) :
+    ∃ value : Int, IsShapeShanten before .mentsuHand value := by
+  exact exists_isShapeShanten_mentsuHand_of_constrainedBlockSearchOnTiles
+    before hbeforeValid hstanding mentsuHandTileOrder hsearch
+
 end Shanten
