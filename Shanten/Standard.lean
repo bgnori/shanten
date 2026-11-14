@@ -1845,6 +1845,24 @@ lemma standardTargetDistance_eq_zero_iff
     rw [standardTargetDistance_eq_countDeficit]
     simp [countDeficit, hcounts]
 
+lemma standardTargetDistance_pos_iff
+    (hand : Hand) (pair : Tile) (melds : List Meld)
+    (hsum :
+      (∑ tile : Tile, hand.counts tile) =
+        ∑ tile : Tile, (standardTarget pair melds).count tile) :
+    0 < standardTargetDistance hand pair melds ↔
+      hand.counts ≠ countsOfTiles (standardTarget pair melds) := by
+  constructor
+  · intro hpos hcounts
+    have hzero : standardTargetDistance hand pair melds = 0 :=
+      (standardTargetDistance_eq_zero_iff hand pair melds hsum).mpr hcounts
+    omega
+  · intro hne
+    exact Nat.pos_of_ne_zero (by
+      intro hzero
+      exact hne
+        ((standardTargetDistance_eq_zero_iff hand pair melds hsum).mp hzero))
+
 lemma standardTargetDistance_exchange
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (discarded drawn : Tile)
