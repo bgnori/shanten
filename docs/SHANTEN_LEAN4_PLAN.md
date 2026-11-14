@@ -184,7 +184,7 @@ Leanの証明済み関数から自動抽出することは前提にしないが�
 上限を超えないことを不変条件とする。
 
 この共有層の最初の実装は
-[`Shanten/Standard.lean`](../Shanten/Standard.lean) に置く。ここでは既に、
+[`Shanten/Mentsu.lean`](../Shanten/Mentsu.lean) に置く。ここでは既に、
 DP状態の骨格、面子手の目標牌姿、目標に対する牌種ごとの不足枚数を定義している。
 次の実装単位で、残りカウントを状態へ追加し、各選択肢の遷移とメモ化可能な
 評価関数を実装する。
@@ -227,11 +227,11 @@ DP状態の骨格、面子手の目標牌姿、目標に対する牌種ごとの
 
 ```lean
 ∃ distance : Nat, distance ≤ 9 ∧
-  ReachesCompletion Complete .standard hand distance
+  ReachesCompletion Complete .mentsu hand distance
 ```
 
 を構成する。既存の
-[`standardShanten_le_eight_of_completion_bound`](../Shanten/Bounds.lean) は、この
+[`mentsuShanten_le_eight_of_completion_bound`](../Shanten/Bounds.lean) は、この
 到達性補題を受け取る最終段階として再利用する。
 
 固定面子がある場合は、[`HandStep`](../Shanten/Specification.lean) の

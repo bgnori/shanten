@@ -8,8 +8,8 @@ inductive Taatsu
   | sequence (suit : Suit) (start : Fin 8)
   deriving DecidableEq, Fintype
 
-/-- The counters carried by the standard-form dynamic program. -/
-structure StandardSearchState where
+/-- The counters carried by the mentsu-hand dynamic program. -/
+structure MentsuSearchState where
   tileIndex : Nat
   used : Multiset Tile
   pair : Option Tile
@@ -19,8 +19,8 @@ structure StandardSearchState where
   taatsu : Nat
   deriving DecidableEq
 
-/-- One branch of the standard-form decomposition search. -/
-inductive StandardChoice
+/-- One branch of the mentsu-hand decomposition search. -/
+inductive MentsuChoice
   | skip
   | pair (tile : Tile)
   | taatsu (taatsu : Taatsu)
@@ -88,33 +88,33 @@ lemma taatsuTiles_add_completionTile
           (List.Perm.cons _ (List.Perm.swap _ _ [])).trans
             (List.Perm.swap _ _ _).symm
 
-def choiceTiles : StandardChoice → Multiset Tile
+def choiceTiles : MentsuChoice → Multiset Tile
   | .skip => 0
   | .pair tile => pairTiles tile
   | .taatsu taatsu => taatsuTiles taatsu
   | .meld meld => meldTiles meld
 
-def choiceUsesMeld : StandardChoice → Bool
+def choiceUsesMeld : MentsuChoice → Bool
   | .meld _ => true
   | _ => false
 
-def choiceUsesPair : StandardChoice → Bool
+def choiceUsesPair : MentsuChoice → Bool
   | .pair _ => true
   | _ => false
 
-def choiceUsesTaatsu : StandardChoice → Bool
+def choiceUsesTaatsu : MentsuChoice → Bool
   | .taatsu _ => true
   | _ => false
 
-def ValidStandardChoice
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) : Prop :=
+def ValidMentsuChoice
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice) : Prop :=
   (∀ tile, (state.used + choiceTiles choice).count tile ≤ hand.counts tile) ∧
   state.melds + (if choiceUsesMeld choice = true then 1 else 0) ≤ 4 ∧
   state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0) ≤ 4 ∧
   (state.pair.isNone ∨ choiceUsesPair choice = false)
 
-lemma validStandardChoice_of
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
+lemma validMentsuChoice_of
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
     (hused :
       ∀ tile, (state.used + choiceTiles choice).count tile ≤ hand.counts tile)
     (hmelds :
@@ -122,12 +122,12 @@ lemma validStandardChoice_of
     (htaatsu :
       state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0) ≤ 4)
     (hpair : state.pair.isNone ∨ choiceUsesPair choice = false) :
-    ValidStandardChoice hand state choice :=
+    ValidMentsuChoice hand state choice :=
   ⟨hused, hmelds, htaatsu, hpair⟩
 
-def applyStandardChoice
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (_ : ValidStandardChoice hand state choice) : StandardSearchState :=
+def applyMentsuChoice
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (_ : ValidMentsuChoice hand state choice) : MentsuSearchState :=
   { state with
     tileIndex := state.tileIndex + 1
     used := state.used + choiceTiles choice
@@ -144,80 +144,80 @@ def applyStandardChoice
     taatsu := state.taatsu + (if choiceUsesTaatsu choice = true then 1 else 0)
     }
 
-lemma applyStandardChoice_used_subset
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hvalid : ValidStandardChoice hand state choice) :
+lemma applyMentsuChoice_used_subset
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hvalid : ValidMentsuChoice hand state choice) :
     ∀ tile,
-      (applyStandardChoice hand state choice hvalid).used.count tile ≤
+      (applyMentsuChoice hand state choice hvalid).used.count tile ≤
         hand.counts tile := by
   intro tile
   exact hvalid.1 tile
 
-def allStandardChoices : Finset StandardChoice :=
+def allMentsuChoices : Finset MentsuChoice :=
   insert .skip
-    (Finset.univ.image StandardChoice.pair ∪
-      Finset.univ.image StandardChoice.meld ∪
+    (Finset.univ.image MentsuChoice.pair ∪
+      Finset.univ.image MentsuChoice.meld ∪
       Finset.univ.image (fun taatsu =>
-        StandardChoice.taatsu taatsu))
+        MentsuChoice.taatsu taatsu))
 
-lemma standardChoice_mem_all
-    (choice : StandardChoice) :
-    choice ∈ allStandardChoices := by
+lemma mentsuChoice_mem_all
+    (choice : MentsuChoice) :
+    choice ∈ allMentsuChoices := by
   cases choice with
   | skip =>
-      simp [allStandardChoices]
+      simp [allMentsuChoices]
   | pair tile =>
-      simp [allStandardChoices]
+      simp [allMentsuChoices]
   | taatsu taatsu =>
-      simp [allStandardChoices]
+      simp [allMentsuChoices]
   | meld meld =>
-      simp [allStandardChoices]
+      simp [allMentsuChoices]
 
-def choicesForTile (tile : Tile) : Finset StandardChoice :=
-  allStandardChoices.filter
+def choicesForTile (tile : Tile) : Finset MentsuChoice :=
+  allMentsuChoices.filter
     (fun choice => choice = .skip ∨ tile ∈ choiceTiles choice)
 
-def NextStandardState
-    (hand : Hand) (state next : StandardSearchState) : Prop :=
-  ∃ choice, choice ∈ allStandardChoices ∧
-    ∃ hvalid : ValidStandardChoice hand state choice,
-      next = applyStandardChoice hand state choice hvalid
+def NextMentsuState
+    (hand : Hand) (state next : MentsuSearchState) : Prop :=
+  ∃ choice, choice ∈ allMentsuChoices ∧
+    ∃ hvalid : ValidMentsuChoice hand state choice,
+      next = applyMentsuChoice hand state choice hvalid
 
-def NextStandardStateAt
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState) : Prop :=
+def NextMentsuStateAt
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState) : Prop :=
   ∃ choice, choice ∈ choicesForTile tile ∧
-    ∃ hvalid : ValidStandardChoice hand state choice,
-      next = applyStandardChoice hand state choice hvalid
+    ∃ hvalid : ValidMentsuChoice hand state choice,
+      next = applyMentsuChoice hand state choice hvalid
 
-lemma nextStandardState_used_subset
-    (hand : Hand) (state next : StandardSearchState)
-    (hnext : NextStandardState hand state next) :
+lemma nextMentsuState_used_subset
+    (hand : Hand) (state next : MentsuSearchState)
+    (hnext : NextMentsuState hand state next) :
     ∀ tile, next.used.count tile ≤ hand.counts tile := by
   rcases hnext with ⟨choice, _, hvalid, rfl⟩
-  exact applyStandardChoice_used_subset hand state choice hvalid
+  exact applyMentsuChoice_used_subset hand state choice hvalid
 
-lemma nextStandardState_tileIndex
-    (hand : Hand) (state next : StandardSearchState)
-    (hnext : NextStandardState hand state next) :
+lemma nextMentsuState_tileIndex
+    (hand : Hand) (state next : MentsuSearchState)
+    (hnext : NextMentsuState hand state next) :
     state.tileIndex < next.tileIndex := by
   rcases hnext with ⟨choice, _, hvalid, rfl⟩
-  simp [applyStandardChoice]
+  simp [applyMentsuChoice]
 
-lemma nextStandardStateAt_used_subset
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
-    (hnext : NextStandardStateAt hand tile state next) :
+lemma nextMentsuStateAt_used_subset
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateAt hand tile state next) :
     ∀ tile', next.used.count tile' ≤ hand.counts tile' := by
   rcases hnext with ⟨choice, _, hvalid, rfl⟩
-  exact applyStandardChoice_used_subset hand state choice hvalid
+  exact applyMentsuChoice_used_subset hand state choice hvalid
 
-lemma nextStandardStateAt_tileIndex
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
-    (hnext : NextStandardStateAt hand tile state next) :
+lemma nextMentsuStateAt_tileIndex
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateAt hand tile state next) :
     state.tileIndex < next.tileIndex := by
   rcases hnext with ⟨choice, _, hvalid, rfl⟩
-  simp [applyStandardChoice]
+  simp [applyMentsuChoice]
 
-def initialStandardState : StandardSearchState :=
+def initialMentsuState : MentsuSearchState :=
   { tileIndex := 0
     used := 0
     pair := none
@@ -228,33 +228,33 @@ def initialStandardState : StandardSearchState :=
 
 /-- States reachable after exactly `fuel` decomposition choices. -/
 def reachableWithin
-    (hand : Hand) : Nat → StandardSearchState → Prop
-  | 0, state => state = initialStandardState
+    (hand : Hand) : Nat → MentsuSearchState → Prop
+  | 0, state => state = initialMentsuState
   | fuel + 1, state =>
       ∃ previous,
         reachableWithin hand fuel previous ∧
-          NextStandardState hand previous state
+          NextMentsuState hand previous state
 
-def IsStandardSearchComplete
-    (hand : Hand) (state : StandardSearchState) : Prop :=
+def IsMentsuSearchComplete
+    (hand : Hand) (state : MentsuSearchState) : Prop :=
   state.melds + hand.fixedMelds = 4 ∧ state.pair.isSome
 
 /-- A DP state containing four meld-or-taatsu blocks and one pair. -/
-def IsStandardBlockSearchComplete
-    (hand : Hand) (state : StandardSearchState) : Prop :=
+def IsMentsuBlockSearchComplete
+    (hand : Hand) (state : MentsuSearchState) : Prop :=
   state.melds + state.taatsu + hand.fixedMelds = 4 ∧ state.pair.isSome
 
-/-- The DP query: a complete standard decomposition is reachable in `fuel` choices. -/
-def StandardSearch
+/-- The DP query: a complete mentsu decomposition is reachable in `fuel` choices. -/
+def MentsuSearch
     (hand : Hand) (fuel : Nat) : Prop :=
   ∃ state, reachableWithin hand fuel state ∧
-    IsStandardSearchComplete hand state
+    IsMentsuSearchComplete hand state
 
 /-- The DP query using the four-block criterion. -/
-def StandardBlockSearch
+def MentsuBlockSearch
     (hand : Hand) (fuel : Nat) : Prop :=
   ∃ state, reachableWithin hand fuel state ∧
-    IsStandardBlockSearchComplete hand state
+    IsMentsuBlockSearchComplete hand state
 
 def pairHistoryTiles (pair : Option Tile) : Multiset Tile :=
   pair.elim 0 pairTiles
@@ -325,12 +325,12 @@ lemma meldsTiles_card (melds : List Meld) :
       rw [Multiset.card_add, meldTiles_card, ih]
       omega
 
-def completedMeldsForState (state : StandardSearchState) : List Meld :=
+def completedMeldsForState (state : MentsuSearchState) : List Meld :=
   state.meldHistory.reverse ++
     taatsuCompletionMelds state.taatsuHistory.reverse
 
 lemma completedMeldsForState_length
-    (state : StandardSearchState) :
+    (state : MentsuSearchState) :
     (completedMeldsForState state).length =
       state.meldHistory.length + state.taatsuHistory.length := by
   simp [completedMeldsForState, taatsuCompletionMelds_length,
@@ -347,7 +347,7 @@ lemma meldsTiles_append (left right : List Meld) :
       rw [ih]
       ac_rfl
 
-def stateHistoryTiles (state : StandardSearchState) : Multiset Tile :=
+def stateHistoryTiles (state : MentsuSearchState) : Multiset Tile :=
   pairHistoryTiles state.pair +
     meldsTiles state.meldHistory.reverse +
     taatsuHistoryTiles state.taatsuHistory.reverse
@@ -378,48 +378,48 @@ lemma meldsTiles_append_single (history : List Meld) (meld : Meld) :
         ac_rfl
   simpa [meldsTiles, List.foldr_append] using aux history (meldTiles meld)
 
-lemma applyStandardChoice_used_eq_historyTiles
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hvalid : ValidStandardChoice hand state choice)
+lemma applyMentsuChoice_used_eq_historyTiles
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hstate : state.used = stateHistoryTiles state) :
-    (applyStandardChoice hand state choice hvalid).used =
-      stateHistoryTiles (applyStandardChoice hand state choice hvalid) := by
+    (applyMentsuChoice hand state choice hvalid).used =
+      stateHistoryTiles (applyMentsuChoice hand state choice hvalid) := by
   cases choice with
   | skip =>
-      simpa [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+      simpa [applyMentsuChoice, stateHistoryTiles, pairHistoryTiles,
         taatsuHistoryTiles, choiceTiles] using hstate
   | pair tile =>
       have hpair : state.pair.isNone := by
         simpa [choiceUsesPair] using hvalid.2.2.2
       cases hstatePair : state.pair with
       | none =>
-          simp only [applyStandardChoice]
+          simp only [applyMentsuChoice]
           change state.used + pairTiles tile = _
           rw [hstate]
-          simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+          simp [applyMentsuChoice, stateHistoryTiles, pairHistoryTiles,
             taatsuHistoryTiles, choiceTiles, hstatePair]
           ac_rfl
       | some oldPair =>
           simp [hstatePair] at hpair
   | taatsu taatsu =>
-      simp only [applyStandardChoice]
+      simp only [applyMentsuChoice]
       change state.used + taatsuTiles taatsu = _
       rw [hstate]
-      simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+      simp [applyMentsuChoice, stateHistoryTiles, pairHistoryTiles,
         taatsuHistoryTiles, choiceTiles, List.reverse_cons,
         taatsuHistoryTiles_append_single]
       ac_rfl
   | meld meld =>
-      simp only [applyStandardChoice]
+      simp only [applyMentsuChoice]
       change state.used + meldTiles meld = _
       rw [hstate]
-      simp [applyStandardChoice, stateHistoryTiles, pairHistoryTiles,
+      simp [applyMentsuChoice, stateHistoryTiles, pairHistoryTiles,
         taatsuHistoryTiles, choiceTiles, List.reverse_cons,
         meldsTiles_append_single]
       ac_rfl
 
 lemma reachableWithin_used_eq_historyTiles
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) :
     state.used = stateHistoryTiles state := by
   induction fuel generalizing state with
@@ -429,19 +429,19 @@ lemma reachableWithin_used_eq_historyTiles
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rcases hnext with ⟨choice, _, hvalid, rfl⟩
-      exact applyStandardChoice_used_eq_historyTiles
+      exact applyMentsuChoice_used_eq_historyTiles
         hand previous choice hvalid (ih previous hprevious)
 
-lemma applyStandardChoice_melds_eq_history_length
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hvalid : ValidStandardChoice hand state choice)
+lemma applyMentsuChoice_melds_eq_history_length
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hstate : state.melds = state.meldHistory.length) :
-    (applyStandardChoice hand state choice hvalid).melds =
-      (applyStandardChoice hand state choice hvalid).meldHistory.length := by
-  cases choice <;> simp [applyStandardChoice, hstate, choiceUsesMeld]
+    (applyMentsuChoice hand state choice hvalid).melds =
+      (applyMentsuChoice hand state choice hvalid).meldHistory.length := by
+  cases choice <;> simp [applyMentsuChoice, hstate, choiceUsesMeld]
 
 lemma reachableWithin_melds_eq_history_length
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) :
     state.melds = state.meldHistory.length := by
   induction fuel generalizing state with
@@ -451,19 +451,19 @@ lemma reachableWithin_melds_eq_history_length
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rcases hnext with ⟨choice, _, hvalid, rfl⟩
-      exact applyStandardChoice_melds_eq_history_length
+      exact applyMentsuChoice_melds_eq_history_length
         hand previous choice hvalid (ih previous hprevious)
 
-lemma applyStandardChoice_taatsu_eq_history_length
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hvalid : ValidStandardChoice hand state choice)
+lemma applyMentsuChoice_taatsu_eq_history_length
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hstate : state.taatsu = state.taatsuHistory.length) :
-    (applyStandardChoice hand state choice hvalid).taatsu =
-      (applyStandardChoice hand state choice hvalid).taatsuHistory.length := by
-  cases choice <;> simp [applyStandardChoice, hstate, choiceUsesTaatsu]
+    (applyMentsuChoice hand state choice hvalid).taatsu =
+      (applyMentsuChoice hand state choice hvalid).taatsuHistory.length := by
+  cases choice <;> simp [applyMentsuChoice, hstate, choiceUsesTaatsu]
 
 lemma reachableWithin_taatsu_eq_history_length
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) :
     state.taatsu = state.taatsuHistory.length := by
   induction fuel generalizing state with
@@ -473,78 +473,78 @@ lemma reachableWithin_taatsu_eq_history_length
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rcases hnext with ⟨choice, _, hvalid, rfl⟩
-      exact applyStandardChoice_taatsu_eq_history_length
+      exact applyMentsuChoice_taatsu_eq_history_length
         hand previous choice hvalid (ih previous hprevious)
 
 /-- States reached from a given state while processing tile kinds in order. -/
 def reachableOnTilesFrom
-    (hand : Hand) : List Tile → StandardSearchState →
-      StandardSearchState → Prop
+    (hand : Hand) : List Tile → MentsuSearchState →
+      MentsuSearchState → Prop
   | [], start, state => state = start
   | tile :: tiles, start, state =>
       ∃ middle,
-        NextStandardStateAt hand tile start middle ∧
+        NextMentsuStateAt hand tile start middle ∧
           reachableOnTilesFrom hand tiles middle state
 
 /-- States reached while processing a prescribed sequence of tile kinds. -/
 def reachableOnTiles
-    (hand : Hand) (tiles : List Tile) (state : StandardSearchState) : Prop :=
-  reachableOnTilesFrom hand tiles initialStandardState state
+    (hand : Hand) (tiles : List Tile) (state : MentsuSearchState) : Prop :=
+  reachableOnTilesFrom hand tiles initialMentsuState state
 
-def StandardSearchOnTiles
+def MentsuSearchOnTiles
     (hand : Hand) (tiles : List Tile) : Prop :=
   ∃ state, reachableOnTiles hand tiles state ∧
-    IsStandardSearchComplete hand state
+    IsMentsuSearchComplete hand state
 
-def StandardBlockSearchOnTiles
+def MentsuBlockSearchOnTiles
     (hand : Hand) (tiles : List Tile) : Prop :=
   ∃ state, reachableOnTiles hand tiles state ∧
-    IsStandardBlockSearchComplete hand state
+    IsMentsuBlockSearchComplete hand state
 
 lemma reachableWithin_zero_iff
-    (hand : Hand) (state : StandardSearchState) :
-    reachableWithin hand 0 state ↔ state = initialStandardState := by
+    (hand : Hand) (state : MentsuSearchState) :
+    reachableWithin hand 0 state ↔ state = initialMentsuState := by
   rfl
 
 lemma reachableWithin_succ_iff
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState) :
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState) :
     reachableWithin hand (fuel + 1) state ↔
       ∃ previous,
         reachableWithin hand fuel previous ∧
-          NextStandardState hand previous state := by
+          NextMentsuState hand previous state := by
   rfl
 
 lemma reachableWithin_used_subset
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) :
     ∀ tile, state.used.count tile ≤ hand.counts tile := by
   induction fuel generalizing state with
   | zero =>
       intro tile
       subst state
-      simp [initialStandardState]
+      simp [initialMentsuState]
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       intro tile
-      exact nextStandardState_used_subset hand previous state hnext tile
+      exact nextMentsuState_used_subset hand previous state hnext tile
 
-lemma standardSearch_complete_iff
+lemma mentsuSearch_complete_iff
     (hand : Hand) (fuel : Nat) :
-    StandardSearch hand fuel ↔
+    MentsuSearch hand fuel ↔
       ∃ state, reachableWithin hand fuel state ∧
         state.melds + hand.fixedMelds = 4 ∧
         state.pair.isSome := by
   rfl
 
-lemma standardBlockSearch_complete_iff
+lemma mentsuBlockSearch_complete_iff
     (hand : Hand) (fuel : Nat) :
-    StandardBlockSearch hand fuel ↔
+    MentsuBlockSearch hand fuel ↔
         ∃ state, reachableWithin hand fuel state ∧
           state.melds + state.taatsu + hand.fixedMelds = 4 ∧
           state.pair.isSome := by
   rfl
 
-def standardTileAt (index : Fin 34) : Tile :=
+def mentsuTileAt (index : Fin 34) : Tile :=
   match index with
   | ⟨value, hvalue⟩ =>
         if hsuited : value < 27 then
@@ -556,86 +556,86 @@ def standardTileAt (index : Fin 34) : Tile :=
         else
           Tile.honor ⟨value - 27, by omega⟩
 
-def standardTileOrder : List Tile :=
-  (List.finRange 34).map standardTileAt
+def mentsuTileOrder : List Tile :=
+  (List.finRange 34).map mentsuTileAt
 
-def StandardSearchOnTileOrder (hand : Hand) : Prop :=
-  StandardSearchOnTiles hand standardTileOrder
+def MentsuSearchOnTileOrder (hand : Hand) : Prop :=
+  MentsuSearchOnTiles hand mentsuTileOrder
 
-lemma standardTileOrder_length :
-    standardTileOrder.length = 34 := by
-  simp [standardTileOrder]
+lemma mentsuTileOrder_length :
+    mentsuTileOrder.length = 34 := by
+  simp [mentsuTileOrder]
 
-lemma tile_mem_standardTileOrder :
-    ∀ tile : Tile, tile ∈ standardTileOrder := by
+lemma tile_mem_mentsuTileOrder :
+    ∀ tile : Tile, tile ∈ mentsuTileOrder := by
   native_decide
 
-/-- A standard-form target before the fixed melds are added. -/
-def standardTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
+/-- A mentsu-form target before the fixed melds are added. -/
+def mentsuTarget (pair : Tile) (melds : List Meld) : Multiset Tile :=
   pairTiles pair + meldsTiles melds
 
-def standardTargetWithTaatsu
+def mentsuTargetWithTaatsu
     (pair : Tile) (melds : List Meld) (taatsus : List Taatsu) : Multiset Tile :=
-  standardTarget pair melds + taatsuHistoryTiles taatsus
+  mentsuTarget pair melds + taatsuHistoryTiles taatsus
 
 lemma completedMeldsForState_tiles
-    (state : StandardSearchState) (pair : Tile)
+    (state : MentsuSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
     pairTiles pair + meldsTiles (completedMeldsForState state) =
-      standardTargetWithTaatsu pair state.meldHistory.reverse
+      mentsuTargetWithTaatsu pair state.meldHistory.reverse
           state.taatsuHistory.reverse +
         taatsuCompletionTiles state.taatsuHistory.reverse := by
-  simp only [completedMeldsForState, standardTargetWithTaatsu, standardTarget]
+  simp only [completedMeldsForState, mentsuTargetWithTaatsu, mentsuTarget]
   rw [meldsTiles_append]
   rw [← taatsuHistoryTiles_add_completionTiles]
   ac_rfl
 
-def standardTargetWithTaatsuOfState
-    (state : StandardSearchState) : Option (Multiset Tile) :=
+def mentsuTargetWithTaatsuOfState
+    (state : MentsuSearchState) : Option (Multiset Tile) :=
   state.pair.map fun pair =>
-    standardTargetWithTaatsu pair state.meldHistory.reverse
+    mentsuTargetWithTaatsu pair state.meldHistory.reverse
       state.taatsuHistory.reverse
 
-lemma standardTargetWithTaatsuOfState_eq_some_iff
-    (state : StandardSearchState) (target : Multiset Tile) :
-    standardTargetWithTaatsuOfState state = some target ↔
+lemma mentsuTargetWithTaatsuOfState_eq_some_iff
+    (state : MentsuSearchState) (target : Multiset Tile) :
+    mentsuTargetWithTaatsuOfState state = some target ↔
       ∃ pair, state.pair = some pair ∧
-        target = standardTargetWithTaatsu pair state.meldHistory.reverse
+        target = mentsuTargetWithTaatsu pair state.meldHistory.reverse
           state.taatsuHistory.reverse := by
   constructor
   · intro htarget
     cases hpair : state.pair with
     | none =>
-        simp [standardTargetWithTaatsuOfState, hpair] at htarget
+        simp [mentsuTargetWithTaatsuOfState, hpair] at htarget
     | some pair =>
         refine ⟨pair, rfl, ?_⟩
-        simpa [standardTargetWithTaatsuOfState, hpair] using htarget.symm
+        simpa [mentsuTargetWithTaatsuOfState, hpair] using htarget.symm
   · rintro ⟨pair, hpair, rfl⟩
-    rw [standardTargetWithTaatsuOfState, hpair]
+    rw [mentsuTargetWithTaatsuOfState, hpair]
     rfl
 
-lemma standardTargetWithTaatsuOfState_eq_stateHistoryTiles
-    (state : StandardSearchState) (pair : Tile)
+lemma mentsuTargetWithTaatsuOfState_eq_stateHistoryTiles
+    (state : MentsuSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
-    standardTargetWithTaatsu pair state.meldHistory.reverse
+    mentsuTargetWithTaatsu pair state.meldHistory.reverse
         state.taatsuHistory.reverse =
       stateHistoryTiles state := by
-  simp [standardTargetWithTaatsu, standardTarget, stateHistoryTiles,
+  simp [mentsuTargetWithTaatsu, mentsuTarget, stateHistoryTiles,
     pairHistoryTiles, hpair, Multiset.add_assoc]
 
-lemma standardTargetWithTaatsu_count_le_hand
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma mentsuTargetWithTaatsu_count_le_hand
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) (pair : Tile)
     (hpair : state.pair = some pair) :
     ∀ tile,
-      (standardTargetWithTaatsu pair state.meldHistory.reverse
+      (mentsuTargetWithTaatsu pair state.meldHistory.reverse
         state.taatsuHistory.reverse).count tile ≤ hand.counts tile := by
   intro tile
-  rw [standardTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
+  rw [mentsuTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
   rw [← reachableWithin_used_eq_historyTiles hand fuel state hreachable]
   exact reachableWithin_used_subset hand fuel state hreachable tile
 
-lemma standardTargetExchange_handStep
+lemma mentsuTargetExchange_handStep
     (target : TileCounts) (before : Hand) (discarded drawn : Tile)
     (hdrawn : target drawn > before.counts drawn)
     (hdiscarded : before.counts discarded > target discarded)
@@ -653,7 +653,7 @@ lemma reachesExchange_of_targetExchange
       ReachesExchange (exchangeHand before discarded drawn) after distance) :
     ReachesExchange before after (distance + 1) := by
   apply ReachesExchange.step
-    (standardTargetExchange_handStep target before discarded drawn
+    (mentsuTargetExchange_handStep target before discarded drawn
       hdrawn hdiscarded hne)
   exact hrest
 
@@ -662,26 +662,26 @@ lemma exchangeHand_fixedMelds
     (exchangeHand before discarded drawn).fixedMelds = before.fixedMelds := by
   rfl
 
-def standardTargetOfState
-    (state : StandardSearchState) : Option (Multiset Tile) :=
+def mentsuTargetOfState
+    (state : MentsuSearchState) : Option (Multiset Tile) :=
   state.pair.map fun pair =>
-    standardTarget pair state.meldHistory.reverse
+    mentsuTarget pair state.meldHistory.reverse
 
-lemma standardTargetOfState_eq_some_iff
-    (state : StandardSearchState) (target : Multiset Tile) :
-    standardTargetOfState state = some target ↔
+lemma mentsuTargetOfState_eq_some_iff
+    (state : MentsuSearchState) (target : Multiset Tile) :
+    mentsuTargetOfState state = some target ↔
       ∃ pair, state.pair = some pair ∧
-        target = standardTarget pair state.meldHistory.reverse := by
+        target = mentsuTarget pair state.meldHistory.reverse := by
   constructor
   · intro htarget
     cases hpair : state.pair with
     | none =>
-        simp [standardTargetOfState, hpair] at htarget
+        simp [mentsuTargetOfState, hpair] at htarget
     | some pair =>
         refine ⟨pair, rfl, ?_⟩
-        simpa [standardTargetOfState, hpair] using htarget.symm
+        simpa [mentsuTargetOfState, hpair] using htarget.symm
   · rintro ⟨pair, hpair, rfl⟩
-    rw [standardTargetOfState, hpair]
+    rw [mentsuTargetOfState, hpair]
     rfl
 
 /-- The number of copies of each tile still required by a target. -/
@@ -871,11 +871,11 @@ lemma countDeficit_handStep_le
         simp [hdrawn]
         omega
 
-lemma exists_complete_standard_with_deficit_le
+lemma exists_complete_mentsu_with_deficit_le
     (before : Hand) (distance : Nat)
-    (hreach : ReachesCompletion Complete .standard before distance) :
+    (hreach : ReachesCompletion Complete .mentsu before distance) :
     ∃ after,
-      Complete .standard after ∧
+      Complete .mentsu after ∧
         after.fixedMelds = before.fixedMelds ∧
         countDeficit before.counts after.counts ≤ distance := by
   induction distance generalizing before with
@@ -1033,12 +1033,12 @@ lemma reachesExchange_targetHand_of_equal_sum
       refine ⟨distance + 1, ?_, ?_⟩
       · omega
       · apply ReachesExchange.step
-        · exact standardTargetExchange_handStep target current discarded drawn
+        · exact mentsuTargetExchange_handStep target current discarded drawn
             hdrawn hdiscarded hneTiles
         · simpa [next, targetHand, exchangeHand] using hrest
   exact aux (countDeficit before.counts target) before hsum rfl
 
-lemma complete_standard_targetHand
+lemma complete_mentsu_targetHand
     (before : Hand) (target : TileCounts)
     (pair : Tile) (melds : List Meld)
     (hvalid : ValidCounts (targetHand before target))
@@ -1046,10 +1046,10 @@ lemma complete_standard_targetHand
     (htiles :
       HasTiles (targetHand before target)
         (pairTiles pair + meldsTiles melds)) :
-    Complete .standard (targetHand before target) := by
+    Complete .mentsu (targetHand before target) := by
   exact ⟨hvalid, pair, melds, hmelds, htiles⟩
 
-lemma reachesCompletion_standard_of_equal_sum
+lemma reachesCompletion_mentsu_of_equal_sum
     (before : Hand) (target : TileCounts)
     (pair : Tile) (melds : List Meld)
     (hsum : (∑ tile : Tile, before.counts tile) =
@@ -1059,22 +1059,22 @@ lemma reachesCompletion_standard_of_equal_sum
     (htiles :
       HasTiles (targetHand before target)
         (pairTiles pair + meldsTiles melds)) :
-    ReachesCompletion Complete .standard before
+    ReachesCompletion Complete .mentsu before
       (countDeficit before.counts target) := by
   obtain ⟨distance, hdistance, hexchange⟩ :=
     reachesExchange_targetHand_of_equal_sum before target hsum
   have hcomplete :
-      Complete .standard (targetHand before target) :=
-    complete_standard_targetHand before target pair melds
+      Complete .mentsu (targetHand before target) :=
+    complete_mentsu_targetHand before target pair melds
       hvalid hmelds htiles
   have hdone :
-      ReachesCompletion Complete .standard
+      ReachesCompletion Complete .mentsu
         (targetHand before target) 0 :=
     ReachesCompletion.done hcomplete
   simpa only [Nat.add_zero, hdistance] using
     ReachesExchange.toReachesCompletion hexchange hdone
 
-lemma reachesCompletion_standard_of_one_more_target_tile
+lemma reachesCompletion_mentsu_of_one_more_target_tile
     (before : Hand) (target : TileCounts)
     (pair : Tile) (melds : List Meld)
     (hsum :
@@ -1088,7 +1088,7 @@ lemma reachesCompletion_standard_of_one_more_target_tile
         (pairTiles pair + meldsTiles melds)) :
     ∃ distance,
       distance = countDeficit before.counts target ∧
-      ReachesCompletion Complete .standard before distance := by
+      ReachesCompletion Complete .mentsu before distance := by
   have hdrawnExists : ∃ drawn, before.counts drawn < target drawn := by
     by_contra hnone
     push_neg at hnone
@@ -1140,17 +1140,17 @@ lemma reachesCompletion_standard_of_one_more_target_tile
       (pairTiles pair + meldsTiles melds)
     exact htiles
   have hcomplete :
-      Complete .standard (targetHand next target) :=
-    complete_standard_targetHand next target pair melds
+      Complete .mentsu (targetHand next target) :=
+    complete_mentsu_targetHand next target pair melds
       hvalidNext hmeldsNext htilesNext
   have hdone :
-      ReachesCompletion Complete .standard
+      ReachesCompletion Complete .mentsu
         (targetHand next target) 0 :=
     ReachesCompletion.done hcomplete
   obtain ⟨distance, hdistance, hexchange⟩ :=
     reachesExchange_targetHand_of_equal_sum next target hsumNext
   have hrest :
-      ReachesCompletion Complete .standard next distance := by
+      ReachesCompletion Complete .mentsu next distance := by
     simpa using ReachesExchange.toReachesCompletion hexchange hdone
   have hdeficitNext :
       countDeficit next.counts target + 1 =
@@ -1169,177 +1169,177 @@ lemma reachesCompletion_standard_of_one_more_target_tile
     ReachesCompletion.step hstep hrest⟩
 
 /-- A target has the required number of concealed melds for a hand. -/
-def HasStandardMeldCount (hand : Hand) (melds : List Meld) : Prop :=
+def HasMentsuMeldCount (hand : Hand) (melds : List Meld) : Prop :=
   melds.length + hand.fixedMelds = 4
 
-/-- A standard-form decomposition before completing its taatsu blocks. -/
-structure StandardBlockDecomposition (hand : Hand) where
+/-- A mentsu-form decomposition before completing its taatsu blocks. -/
+structure MentsuBlockDecomposition (hand : Hand) where
   pair : Tile
   melds : List Meld
   taatsus : List Taatsu
   blocks : melds.length + taatsus.length + hand.fixedMelds = 4
   targetWithinHand :
     ∀ tile,
-      (standardTargetWithTaatsu pair melds taatsus).count tile ≤ hand.counts tile
+      (mentsuTargetWithTaatsu pair melds taatsus).count tile ≤ hand.counts tile
   completionCopyLimit :
     ∀ tile,
-      (standardTargetWithTaatsu pair melds taatsus +
+      (mentsuTargetWithTaatsu pair melds taatsus +
         taatsuCompletionTiles taatsus).count tile ≤ 4
 
-def standardChoiceTiles : List StandardChoice → Multiset Tile
+def mentsuChoiceTiles : List MentsuChoice → Multiset Tile
   | [] => 0
   | choice :: choices =>
-      choiceTiles choice + standardChoiceTiles choices
+      choiceTiles choice + mentsuChoiceTiles choices
 
-lemma standardChoiceTiles_append
-    (left right : List StandardChoice) :
-    standardChoiceTiles (left ++ right) =
-      standardChoiceTiles left + standardChoiceTiles right := by
+lemma mentsuChoiceTiles_append
+    (left right : List MentsuChoice) :
+    mentsuChoiceTiles (left ++ right) =
+      mentsuChoiceTiles left + mentsuChoiceTiles right := by
   induction left with
   | nil =>
-      simp [standardChoiceTiles]
+      simp [mentsuChoiceTiles]
   | cons choice left ih =>
-      simp [standardChoiceTiles, ih, Multiset.add_assoc]
+      simp [mentsuChoiceTiles, ih, Multiset.add_assoc]
 
-def StandardBlockDecomposition.blockChoices
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
-    List StandardChoice :=
+def MentsuBlockDecomposition.blockChoices
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
+    List MentsuChoice :=
   .pair decomposition.pair ::
-    decomposition.melds.map StandardChoice.meld ++
-      decomposition.taatsus.map StandardChoice.taatsu
+    decomposition.melds.map MentsuChoice.meld ++
+      decomposition.taatsus.map MentsuChoice.taatsu
 
-lemma StandardBlockDecomposition.blockChoices_length
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+lemma MentsuBlockDecomposition.blockChoices_length
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     decomposition.blockChoices.length =
       1 + decomposition.melds.length + decomposition.taatsus.length := by
-  simp [StandardBlockDecomposition.blockChoices]
+  simp [MentsuBlockDecomposition.blockChoices]
   omega
 
-lemma StandardBlockDecomposition.blockChoices_mem_all
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+lemma MentsuBlockDecomposition.blockChoices_mem_all
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     ∀ choice, choice ∈ decomposition.blockChoices →
-      choice ∈ allStandardChoices := by
+      choice ∈ allMentsuChoices := by
   intro choice hchoice
-  unfold StandardBlockDecomposition.blockChoices at hchoice
+  unfold MentsuBlockDecomposition.blockChoices at hchoice
   simp only [List.mem_cons, List.mem_append, List.mem_map] at hchoice
   rcases hchoice with (hpair | hmeld) | htaatsu
   · rw [hpair]
-    exact standardChoice_mem_all _
+    exact mentsuChoice_mem_all _
   · rcases hmeld with ⟨meld, _, hmeld⟩
     rw [← hmeld]
-    exact standardChoice_mem_all _
+    exact mentsuChoice_mem_all _
   · rcases htaatsu with ⟨taatsu, _, htaatsu⟩
     rw [← htaatsu]
-    exact standardChoice_mem_all _
+    exact mentsuChoice_mem_all _
 
-lemma standardChoiceTiles_map_meld
+lemma mentsuChoiceTiles_map_meld
     (melds : List Meld) :
-    standardChoiceTiles (melds.map StandardChoice.meld) =
+    mentsuChoiceTiles (melds.map MentsuChoice.meld) =
       meldsTiles melds := by
   induction melds with
   | nil =>
       rfl
   | cons meld melds ih =>
-      simp [standardChoiceTiles, choiceTiles, meldsTiles, ih]
+      simp [mentsuChoiceTiles, choiceTiles, meldsTiles, ih]
 
-lemma standardChoiceTiles_map_taatsu
+lemma mentsuChoiceTiles_map_taatsu
     (taatsus : List Taatsu) :
-    standardChoiceTiles (taatsus.map StandardChoice.taatsu) =
+    mentsuChoiceTiles (taatsus.map MentsuChoice.taatsu) =
       taatsuHistoryTiles taatsus := by
   induction taatsus with
   | nil =>
       rfl
   | cons taatsu taatsus ih =>
-      simp [standardChoiceTiles, choiceTiles, taatsuHistoryTiles, ih]
+      simp [mentsuChoiceTiles, choiceTiles, taatsuHistoryTiles, ih]
 
-lemma StandardBlockDecomposition.blockChoices_tiles
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
-    standardChoiceTiles decomposition.blockChoices =
-      standardTargetWithTaatsu decomposition.pair decomposition.melds
+lemma MentsuBlockDecomposition.blockChoices_tiles
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
+    mentsuChoiceTiles decomposition.blockChoices =
+      mentsuTargetWithTaatsu decomposition.pair decomposition.melds
         decomposition.taatsus := by
-  unfold StandardBlockDecomposition.blockChoices
-  simp [standardChoiceTiles, choiceTiles, List.map_append,
-    standardChoiceTiles_append,
-    standardChoiceTiles_map_meld, standardChoiceTiles_map_taatsu,
-    standardTargetWithTaatsu, standardTarget]
+  unfold MentsuBlockDecomposition.blockChoices
+  simp [mentsuChoiceTiles, choiceTiles, List.map_append,
+    mentsuChoiceTiles_append,
+    mentsuChoiceTiles_map_meld, mentsuChoiceTiles_map_taatsu,
+    mentsuTargetWithTaatsu, mentsuTarget]
   ac_rfl
 
-lemma standardChoiceTiles_prefix_count_le
-    (pre suffix : List StandardChoice) (tile : Tile) :
-    (standardChoiceTiles pre).count tile ≤
-      (standardChoiceTiles (pre ++ suffix)).count tile := by
-  rw [standardChoiceTiles_append]
+lemma mentsuChoiceTiles_prefix_count_le
+    (pre suffix : List MentsuChoice) (tile : Tile) :
+    (mentsuChoiceTiles pre).count tile ≤
+      (mentsuChoiceTiles (pre ++ suffix)).count tile := by
+  rw [mentsuChoiceTiles_append]
   simp only [Multiset.count_add]
   omega
 
-lemma StandardBlockDecomposition.prefix_count_le_hand
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
-    (pre suffix : List StandardChoice)
+lemma MentsuBlockDecomposition.prefix_count_le_hand
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand)
+    (pre suffix : List MentsuChoice)
     (hchoices : decomposition.blockChoices = pre ++ suffix) :
-    ∀ tile, (standardChoiceTiles pre).count tile ≤ hand.counts tile := by
+    ∀ tile, (mentsuChoiceTiles pre).count tile ≤ hand.counts tile := by
   intro tile
   have hprefix :
-      (standardChoiceTiles pre).count tile ≤
-        (standardChoiceTiles decomposition.blockChoices).count tile := by
+      (mentsuChoiceTiles pre).count tile ≤
+        (mentsuChoiceTiles decomposition.blockChoices).count tile := by
     rw [hchoices]
-    exact standardChoiceTiles_prefix_count_le pre suffix tile
+    exact mentsuChoiceTiles_prefix_count_le pre suffix tile
   have htarget :
-      (standardChoiceTiles decomposition.blockChoices).count tile ≤
+      (mentsuChoiceTiles decomposition.blockChoices).count tile ≤
         hand.counts tile := by
     rw [decomposition.blockChoices_tiles]
     exact decomposition.targetWithinHand tile
   exact hprefix.trans htarget
 
-lemma StandardBlockDecomposition.prefix_completion_count_le_four
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
-    (pre suffix : List StandardChoice)
+lemma MentsuBlockDecomposition.prefix_completion_count_le_four
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand)
+    (pre suffix : List MentsuChoice)
     (hchoices : decomposition.blockChoices = pre ++ suffix) :
     ∀ tile,
-        (standardChoiceTiles pre +
+        (mentsuChoiceTiles pre +
         taatsuCompletionTiles decomposition.taatsus).count tile ≤ 4 := by
   intro tile
   have hprefix :
-        (standardChoiceTiles pre).count tile ≤
-        (standardChoiceTiles decomposition.blockChoices).count tile := by
+        (mentsuChoiceTiles pre).count tile ≤
+        (mentsuChoiceTiles decomposition.blockChoices).count tile := by
     rw [hchoices]
-    exact standardChoiceTiles_prefix_count_le pre suffix tile
+    exact mentsuChoiceTiles_prefix_count_le pre suffix tile
   have hfull :
-      (standardChoiceTiles decomposition.blockChoices +
+      (mentsuChoiceTiles decomposition.blockChoices +
         taatsuCompletionTiles decomposition.taatsus).count tile ≤ 4 := by
     rw [decomposition.blockChoices_tiles]
     exact decomposition.completionCopyLimit tile
   rw [Multiset.count_add] at hfull ⊢
   omega
 
-def StandardBlockDecomposition.completedTarget
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+def MentsuBlockDecomposition.completedTarget
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     Multiset Tile :=
-  standardTargetWithTaatsu decomposition.pair decomposition.melds
+  mentsuTargetWithTaatsu decomposition.pair decomposition.melds
       decomposition.taatsus +
     taatsuCompletionTiles decomposition.taatsus
 
-lemma StandardBlockDecomposition.completedTarget_eq
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+lemma MentsuBlockDecomposition.completedTarget_eq
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     decomposition.completedTarget =
       pairTiles decomposition.pair +
         meldsTiles
           (decomposition.melds ++
             taatsuCompletionMelds decomposition.taatsus) := by
-  unfold StandardBlockDecomposition.completedTarget
-    standardTargetWithTaatsu standardTarget
+  unfold MentsuBlockDecomposition.completedTarget
+    mentsuTargetWithTaatsu mentsuTarget
   rw [meldsTiles_append]
   rw [← taatsuHistoryTiles_add_completionTiles]
   ac_rfl
 
-lemma StandardBlockDecomposition.validCounts_completedTarget
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+lemma MentsuBlockDecomposition.validCounts_completedTarget
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     ValidCounts
       (targetHand hand (countsOfTiles decomposition.completedTarget)) := by
   intro tile
   exact decomposition.completionCopyLimit tile
 
-lemma StandardBlockDecomposition.completedMeldCount
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand) :
+lemma MentsuBlockDecomposition.completedMeldCount
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand) :
     (decomposition.melds ++
       taatsuCompletionMelds decomposition.taatsus).length +
         hand.fixedMelds = 4 := by
@@ -1347,150 +1347,150 @@ lemma StandardBlockDecomposition.completedMeldCount
   have hblocks := decomposition.blocks
   omega
 
-def completedTargetForState (state : StandardSearchState) (pair : Tile) :
+def completedTargetForState (state : MentsuSearchState) (pair : Tile) :
     Multiset Tile :=
   pairTiles pair + meldsTiles (completedMeldsForState state)
 
-def CompletionRespectsCopyLimit (state : StandardSearchState) : Prop :=
+def CompletionRespectsCopyLimit (state : MentsuSearchState) : Prop :=
   ∀ tile,
     (state.used + taatsuCompletionTiles state.taatsuHistory.reverse).count tile ≤ 4
 
-def ValidStandardChoiceWithCopyLimit
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) : Prop :=
-  ∃ hvalid : ValidStandardChoice hand state choice,
+def ValidMentsuChoiceWithCopyLimit
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice) : Prop :=
+  ∃ hvalid : ValidMentsuChoice hand state choice,
     CompletionRespectsCopyLimit
-      (applyStandardChoice hand state choice hvalid)
+      (applyMentsuChoice hand state choice hvalid)
 
-lemma validStandardChoiceWithCopyLimit_of
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hvalid : ValidStandardChoice hand state choice)
+lemma validMentsuChoiceWithCopyLimit_of
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hcopy :
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid)) :
-    ValidStandardChoiceWithCopyLimit hand state choice :=
+        (applyMentsuChoice hand state choice hvalid)) :
+    ValidMentsuChoiceWithCopyLimit hand state choice :=
   ⟨hvalid, hcopy⟩
 
-def NextStandardStateWithCopyLimit
-    (hand : Hand) (state next : StandardSearchState) : Prop :=
-  ∃ choice, choice ∈ allStandardChoices ∧
-    ∃ hvalid : ValidStandardChoice hand state choice,
+def NextMentsuStateWithCopyLimit
+    (hand : Hand) (state next : MentsuSearchState) : Prop :=
+  ∃ choice, choice ∈ allMentsuChoices ∧
+    ∃ hvalid : ValidMentsuChoice hand state choice,
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid) ∧
-      next = applyStandardChoice hand state choice hvalid
+        (applyMentsuChoice hand state choice hvalid) ∧
+      next = applyMentsuChoice hand state choice hvalid
 
-lemma nextStandardStateWithCopyLimit_of_choice
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice)
-    (hchoice : choice ∈ allStandardChoices)
-    (hvalid : ValidStandardChoice hand state choice)
+lemma nextMentsuStateWithCopyLimit_of_choice
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice)
+    (hchoice : choice ∈ allMentsuChoices)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hcopy :
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid)) :
-    NextStandardStateWithCopyLimit hand state
-      (applyStandardChoice hand state choice hvalid) :=
+        (applyMentsuChoice hand state choice hvalid)) :
+    NextMentsuStateWithCopyLimit hand state
+      (applyMentsuChoice hand state choice hvalid) :=
   ⟨choice, hchoice, hvalid, hcopy, rfl⟩
 
 noncomputable def copyLimitChoices
-    (hand : Hand) (state : StandardSearchState) : Finset StandardChoice :=
+    (hand : Hand) (state : MentsuSearchState) : Finset MentsuChoice :=
   by
     classical
-    exact allStandardChoices.filter
+    exact allMentsuChoices.filter
       (fun choice =>
-        ∃ hvalid : ValidStandardChoice hand state choice,
+        ∃ hvalid : ValidMentsuChoice hand state choice,
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state choice hvalid))
+            (applyMentsuChoice hand state choice hvalid))
 
 lemma mem_copyLimitChoices_iff
-    (hand : Hand) (state : StandardSearchState) (choice : StandardChoice) :
+    (hand : Hand) (state : MentsuSearchState) (choice : MentsuChoice) :
     choice ∈ copyLimitChoices hand state ↔
-      choice ∈ allStandardChoices ∧
-        ∃ hvalid : ValidStandardChoice hand state choice,
+      choice ∈ allMentsuChoices ∧
+        ∃ hvalid : ValidMentsuChoice hand state choice,
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state choice hvalid) := by
+            (applyMentsuChoice hand state choice hvalid) := by
   classical
-  change choice ∈ allStandardChoices.filter _ ↔ _
+  change choice ∈ allMentsuChoices.filter _ ↔ _
   rw [Finset.mem_filter]
 
-lemma nextStandardStateWithCopyLimit_iff
-    (hand : Hand) (state next : StandardSearchState) :
-    NextStandardStateWithCopyLimit hand state next ↔
+lemma nextMentsuStateWithCopyLimit_iff
+    (hand : Hand) (state next : MentsuSearchState) :
+    NextMentsuStateWithCopyLimit hand state next ↔
       ∃ choice, choice ∈ copyLimitChoices hand state ∧
-        ∃ hvalid : ValidStandardChoice hand state choice,
+        ∃ hvalid : ValidMentsuChoice hand state choice,
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state choice hvalid) ∧
-          next = applyStandardChoice hand state choice hvalid := by
+            (applyMentsuChoice hand state choice hvalid) ∧
+          next = applyMentsuChoice hand state choice hvalid := by
   classical
   constructor
   · rintro ⟨choice, hchoice, hvalid, hcopy, rfl⟩
     refine ⟨choice, ?_, hvalid, hcopy, rfl⟩
-    change choice ∈ allStandardChoices.filter _
+    change choice ∈ allMentsuChoices.filter _
     exact Finset.mem_filter.mpr ⟨hchoice, ⟨hvalid, hcopy⟩⟩
   · rintro ⟨choice, hchoice, hvalid, hcopy, rfl⟩
-    change choice ∈ allStandardChoices.filter _ at hchoice
+    change choice ∈ allMentsuChoices.filter _ at hchoice
     exact ⟨choice, (Finset.mem_filter.mp hchoice).1,
       hvalid, hcopy, rfl⟩
 
 noncomputable def choicesForTileWithCopyLimit
-    (hand : Hand) (state : StandardSearchState) (tile : Tile) :
-    Finset StandardChoice :=
+    (hand : Hand) (state : MentsuSearchState) (tile : Tile) :
+    Finset MentsuChoice :=
   by
     classical
     exact (choicesForTile tile).filter
       (fun choice =>
-        ∃ hvalid : ValidStandardChoice hand state choice,
+        ∃ hvalid : ValidMentsuChoice hand state choice,
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state choice hvalid))
+            (applyMentsuChoice hand state choice hvalid))
 
 lemma mem_choicesForTileWithCopyLimit_iff
-    (hand : Hand) (state : StandardSearchState) (tile : Tile)
-    (choice : StandardChoice) :
+    (hand : Hand) (state : MentsuSearchState) (tile : Tile)
+    (choice : MentsuChoice) :
     choice ∈ choicesForTileWithCopyLimit hand state tile ↔
       choice ∈ choicesForTile tile ∧
-        ∃ hvalid : ValidStandardChoice hand state choice,
+        ∃ hvalid : ValidMentsuChoice hand state choice,
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state choice hvalid) := by
+            (applyMentsuChoice hand state choice hvalid) := by
   classical
   change choice ∈ (choicesForTile tile).filter _ ↔ _
   rw [Finset.mem_filter]
 
-def NextStandardStateAtWithCopyLimit
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState) : Prop :=
+def NextMentsuStateAtWithCopyLimit
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState) : Prop :=
   ∃ choice, choice ∈ choicesForTileWithCopyLimit hand state tile ∧
-    ∃ hvalid : ValidStandardChoice hand state choice,
+    ∃ hvalid : ValidMentsuChoice hand state choice,
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid) ∧
-      next = applyStandardChoice hand state choice hvalid
+        (applyMentsuChoice hand state choice hvalid) ∧
+      next = applyMentsuChoice hand state choice hvalid
 
-lemma nextStandardStateAtWithCopyLimit_of_choice
-    (hand : Hand) (tile : Tile) (state : StandardSearchState)
-    (choice : StandardChoice)
-    (hchoice : choice ∈ allStandardChoices)
+lemma nextMentsuStateAtWithCopyLimit_of_choice
+    (hand : Hand) (tile : Tile) (state : MentsuSearchState)
+    (choice : MentsuChoice)
+    (hchoice : choice ∈ allMentsuChoices)
     (htile : tile ∈ choiceTiles choice)
-    (hvalid : ValidStandardChoice hand state choice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hcopy :
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid)) :
-    NextStandardStateAtWithCopyLimit hand tile state
-      (applyStandardChoice hand state choice hvalid) := by
+        (applyMentsuChoice hand state choice hvalid)) :
+    NextMentsuStateAtWithCopyLimit hand tile state
+      (applyMentsuChoice hand state choice hvalid) := by
   refine ⟨choice, ?_, hvalid, hcopy, rfl⟩
   apply (mem_choicesForTileWithCopyLimit_iff hand state tile choice).mpr
   exact ⟨Finset.mem_filter.mpr ⟨hchoice, Or.inr htile⟩,
     ⟨hvalid, hcopy⟩⟩
 
-lemma nextStandardStateAtWithCopyLimit_skip
-    (hand : Hand) (tile : Tile) (state : StandardSearchState)
+lemma nextMentsuStateAtWithCopyLimit_skip
+    (hand : Hand) (tile : Tile) (state : MentsuSearchState)
     (hused : ∀ tile, state.used.count tile ≤ hand.counts tile)
     (hcopy : CompletionRespectsCopyLimit state)
     (hmelds : state.melds ≤ 4)
     (htaatsu : state.taatsu ≤ 4) :
-    NextStandardStateAtWithCopyLimit hand tile state
-      (applyStandardChoice hand state .skip
+    NextMentsuStateAtWithCopyLimit hand tile state
+      (applyMentsuChoice hand state .skip
         (by
           refine ⟨?_, ?_, ?_, ?_⟩
           · simpa [choiceTiles] using hused
           · simpa [choiceUsesMeld] using hmelds
           · simpa [choiceUsesTaatsu] using htaatsu
           · simp [choiceUsesPair])) := by
-  let hvalid : ValidStandardChoice hand state .skip := by
+  let hvalid : ValidMentsuChoice hand state .skip := by
     refine ⟨?_, ?_, ?_, ?_⟩
     · simpa [choiceTiles] using hused
     · simpa [choiceUsesMeld] using hmelds
@@ -1498,62 +1498,62 @@ lemma nextStandardStateAtWithCopyLimit_skip
     · simp [choiceUsesPair]
   refine ⟨.skip, ?_, hvalid, ?_, rfl⟩
   apply (mem_choicesForTileWithCopyLimit_iff hand state tile .skip).mpr
-  · exact ⟨by simp [choicesForTile, allStandardChoices],
+  · exact ⟨by simp [choicesForTile, allMentsuChoices],
       ⟨hvalid, by
-        simpa [CompletionRespectsCopyLimit, applyStandardChoice,
+        simpa [CompletionRespectsCopyLimit, applyMentsuChoice,
           choiceTiles] using hcopy⟩⟩
-  · simpa [CompletionRespectsCopyLimit, applyStandardChoice,
+  · simpa [CompletionRespectsCopyLimit, applyMentsuChoice,
       choiceTiles] using hcopy
 
-lemma nextStandardStateAtWithCopyLimit_toNext
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
-    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
-    NextStandardStateAt hand tile state next := by
+lemma nextMentsuStateAtWithCopyLimit_toNext
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateAtWithCopyLimit hand tile state next) :
+    NextMentsuStateAt hand tile state next := by
   rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
   exact ⟨choice, (mem_choicesForTileWithCopyLimit_iff
     hand state tile choice).mp hchoice |>.1, hvalid, rfl⟩
 
-lemma nextStandardStateAtWithCopyLimit_copyLimit
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
-    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
+lemma nextMentsuStateAtWithCopyLimit_copyLimit
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateAtWithCopyLimit hand tile state next) :
     CompletionRespectsCopyLimit next := by
   rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
   exact hcopy
 
-lemma nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
-    (hand : Hand) (tile : Tile) (state next : StandardSearchState)
-    (hnext : NextStandardStateAtWithCopyLimit hand tile state next) :
-    NextStandardStateWithCopyLimit hand state next := by
+lemma nextMentsuStateAtWithCopyLimit_toNextWithCopyLimit
+    (hand : Hand) (tile : Tile) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateAtWithCopyLimit hand tile state next) :
+    NextMentsuStateWithCopyLimit hand state next := by
   classical
   rcases hnext with ⟨choice, hchoice, hvalid, hcopy, rfl⟩
   change choice ∈ (choicesForTile tile).filter _ at hchoice
-  have hchoiceAll : choice ∈ allStandardChoices :=
+  have hchoiceAll : choice ∈ allMentsuChoices :=
     (Finset.mem_filter.mp (Finset.mem_filter.mp hchoice).1).1
   exact ⟨choice, hchoiceAll, hvalid, hcopy, rfl⟩
 
 def reachableOnTilesFromWithCopyLimit
-    (hand : Hand) : List Tile → StandardSearchState →
-      StandardSearchState → Prop
+    (hand : Hand) : List Tile → MentsuSearchState →
+      MentsuSearchState → Prop
   | [], start, state => state = start
   | tile :: tiles, start, state =>
       ∃ middle,
-        NextStandardStateAtWithCopyLimit hand tile start middle ∧
+        NextMentsuStateAtWithCopyLimit hand tile start middle ∧
           reachableOnTilesFromWithCopyLimit hand tiles middle state
 
 def reachableOnTilesWithCopyLimit
-    (hand : Hand) (tiles : List Tile) (state : StandardSearchState) : Prop :=
-  reachableOnTilesFromWithCopyLimit hand tiles initialStandardState state
+    (hand : Hand) (tiles : List Tile) (state : MentsuSearchState) : Prop :=
+  reachableOnTilesFromWithCopyLimit hand tiles initialMentsuState state
 
-def StandardBlockSearchOnTilesWithCopyLimit
+def MentsuBlockSearchOnTilesWithCopyLimit
     (hand : Hand) (tiles : List Tile) : Prop :=
   ∃ state, reachableOnTilesWithCopyLimit hand tiles state ∧
-    IsStandardBlockSearchComplete hand state
+    IsMentsuBlockSearchComplete hand state
 
-def StandardBlockSearchOnTileOrderWithCopyLimit (hand : Hand) : Prop :=
-  StandardBlockSearchOnTilesWithCopyLimit hand standardTileOrder
+def MentsuBlockSearchOnTileOrderWithCopyLimit (hand : Hand) : Prop :=
+  MentsuBlockSearchOnTilesWithCopyLimit hand mentsuTileOrder
 
 lemma reachableOnTilesFromWithCopyLimit_to_reachableOnTilesFrom
-    (hand : Hand) (tiles : List Tile) (start state : StandardSearchState)
+    (hand : Hand) (tiles : List Tile) (start state : MentsuSearchState)
     (hreachable : reachableOnTilesFromWithCopyLimit
       hand tiles start state) :
     reachableOnTilesFrom hand tiles start state := by
@@ -1562,28 +1562,28 @@ lemma reachableOnTilesFromWithCopyLimit_to_reachableOnTilesFrom
       exact hreachable
   | cons tile tiles ih =>
       rcases hreachable with ⟨middle, hnext, hrest⟩
-      exact ⟨middle, nextStandardStateAtWithCopyLimit_toNext
+      exact ⟨middle, nextMentsuStateAtWithCopyLimit_toNext
         hand tile start middle hnext, ih middle state hrest⟩
 
-lemma standardBlockSearchOnTilesWithCopyLimit_to_standardBlockSearchOnTiles
+lemma mentsuBlockSearchOnTilesWithCopyLimit_to_mentsuBlockSearchOnTiles
     (hand : Hand) (tiles : List Tile)
-    (hsearch : StandardBlockSearchOnTilesWithCopyLimit hand tiles) :
-    StandardBlockSearchOnTiles hand tiles := by
+    (hsearch : MentsuBlockSearchOnTilesWithCopyLimit hand tiles) :
+    MentsuBlockSearchOnTiles hand tiles := by
   rcases hsearch with ⟨state, hreachable, hcomplete⟩
   exact ⟨state,
     reachableOnTilesFromWithCopyLimit_to_reachableOnTilesFrom
-      hand tiles initialStandardState state hreachable, hcomplete⟩
+      hand tiles initialMentsuState state hreachable, hcomplete⟩
 
 lemma reachableOnTilesWithCopyLimit_copyLimit
-    (hand : Hand) (tiles : List Tile) (state : StandardSearchState)
+    (hand : Hand) (tiles : List Tile) (state : MentsuSearchState)
     (hreachable : reachableOnTilesWithCopyLimit hand tiles state) :
     CompletionRespectsCopyLimit state := by
-  have hinitial : CompletionRespectsCopyLimit initialStandardState := by
+  have hinitial : CompletionRespectsCopyLimit initialMentsuState := by
     intro tile
-    simp [CompletionRespectsCopyLimit, initialStandardState,
+    simp [CompletionRespectsCopyLimit, initialMentsuState,
       taatsuCompletionTiles]
   have aux :
-      ∀ (tiles : List Tile) (start state : StandardSearchState),
+      ∀ (tiles : List Tile) (start state : MentsuSearchState),
         CompletionRespectsCopyLimit start →
         reachableOnTilesFromWithCopyLimit hand tiles start state →
         CompletionRespectsCopyLimit state := by
@@ -1597,67 +1597,67 @@ lemma reachableOnTilesWithCopyLimit_copyLimit
         intro start state hstart hreach
         rcases hreach with ⟨middle, hnext, hrest⟩
         exact ih middle state
-          (nextStandardStateAtWithCopyLimit_copyLimit
+          (nextMentsuStateAtWithCopyLimit_copyLimit
             hand tile start middle hnext) hrest
-  exact aux tiles initialStandardState state hinitial hreachable
+  exact aux tiles initialMentsuState state hinitial hreachable
 
-lemma nextStandardStateWithCopyLimit_copyLimit
-    (hand : Hand) (state next : StandardSearchState)
-    (hnext : NextStandardStateWithCopyLimit hand state next) :
+lemma nextMentsuStateWithCopyLimit_copyLimit
+    (hand : Hand) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateWithCopyLimit hand state next) :
     CompletionRespectsCopyLimit next := by
   rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
   exact hcopy
 
 def reachableWithinWithCopyLimit
-    (hand : Hand) : Nat → StandardSearchState → Prop
-  | 0, state => state = initialStandardState
+    (hand : Hand) : Nat → MentsuSearchState → Prop
+  | 0, state => state = initialMentsuState
   | fuel + 1, state =>
       ∃ previous,
         reachableWithinWithCopyLimit hand fuel previous ∧
-        NextStandardStateWithCopyLimit hand previous state
+        NextMentsuStateWithCopyLimit hand previous state
 
-lemma initialStandardState_copyLimit :
-    CompletionRespectsCopyLimit initialStandardState := by
+lemma initialMentsuState_copyLimit :
+    CompletionRespectsCopyLimit initialMentsuState := by
   intro tile
-  simp [CompletionRespectsCopyLimit, initialStandardState,
+  simp [CompletionRespectsCopyLimit, initialMentsuState,
     taatsuCompletionTiles]
 
 lemma reachableWithinWithCopyLimit_copyLimit
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     CompletionRespectsCopyLimit state := by
   induction fuel generalizing state with
   | zero =>
       rw [hreachable]
-      exact initialStandardState_copyLimit
+      exact initialMentsuState_copyLimit
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
-      exact nextStandardStateWithCopyLimit_copyLimit hand previous state hnext
+      exact nextMentsuStateWithCopyLimit_copyLimit hand previous state hnext
 
 lemma reachableWithinWithCopyLimit_melds_le_four
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     state.melds ≤ 4 := by
   induction fuel generalizing state with
   | zero =>
       subst state
-      simp [initialStandardState]
+      simp [initialMentsuState]
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
       have hbound := hvalid.2.1
-      simp only [applyStandardChoice] at hbound ⊢
+      simp only [applyMentsuChoice] at hbound ⊢
       omega
 
 lemma reachableWithinWithCopyLimit_used_subset
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     ∀ tile, state.used.count tile ≤ hand.counts tile := by
   induction fuel generalizing state with
   | zero =>
       intro tile
       subst state
-      simp [initialStandardState]
+      simp [initialMentsuState]
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       intro tile
@@ -1665,25 +1665,25 @@ lemma reachableWithinWithCopyLimit_used_subset
       exact hvalid.1 tile
 
 lemma reachableWithinWithCopyLimit_taatsu_le_four
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     state.taatsu ≤ 4 := by
   induction fuel generalizing state with
   | zero =>
       subst state
-      simp [initialStandardState]
+      simp [initialMentsuState]
   | succ fuel ih =>
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rcases hnext with ⟨choice, _, hvalid, hcopy, rfl⟩
       have hbound := hvalid.2.2.1
-      simp only [applyStandardChoice] at hbound ⊢
+      simp only [applyMentsuChoice] at hbound ⊢
       omega
 
-lemma nextStandardStateAtWithCopyLimit_skip_of_reachable
-    (hand : Hand) (tile : Tile) (fuel : Nat) (state : StandardSearchState)
+lemma nextMentsuStateAtWithCopyLimit_skip_of_reachable
+    (hand : Hand) (tile : Tile) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
-    NextStandardStateAtWithCopyLimit hand tile state
-      (applyStandardChoice hand state .skip
+    NextMentsuStateAtWithCopyLimit hand tile state
+      (applyMentsuChoice hand state .skip
         (by
           refine ⟨?_, ?_, ?_, ?_⟩
           · simpa [choiceTiles] using
@@ -1696,7 +1696,7 @@ lemma nextStandardStateAtWithCopyLimit_skip_of_reachable
               reachableWithinWithCopyLimit_taatsu_le_four
                 hand fuel state hreachable
           · simp [choiceUsesPair])) := by
-  apply nextStandardStateAtWithCopyLimit_skip
+  apply nextMentsuStateAtWithCopyLimit_skip
     hand tile state
     (reachableWithinWithCopyLimit_used_subset hand fuel state hreachable)
     (reachableWithinWithCopyLimit_copyLimit hand fuel state hreachable)
@@ -1705,7 +1705,7 @@ lemma nextStandardStateAtWithCopyLimit_skip_of_reachable
 
 lemma reachableOnTilesFromWithCopyLimit_skips
     (hand : Hand) (tiles : List Tile) (fuel : Nat)
-    (state : StandardSearchState)
+    (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     ∃ final,
       reachableOnTilesFromWithCopyLimit hand tiles state final ∧
@@ -1714,7 +1714,7 @@ lemma reachableOnTilesFromWithCopyLimit_skips
   | nil =>
       exact ⟨state, rfl, by simpa using hreachable⟩
   | cons tile tiles ih =>
-      let hvalid : ValidStandardChoice hand state .skip := by
+      let hvalid : ValidMentsuChoice hand state .skip := by
         refine ⟨?_, ?_, ?_, ?_⟩
         · simpa [choiceTiles] using
             reachableWithinWithCopyLimit_used_subset
@@ -1732,32 +1732,32 @@ lemma reachableOnTilesFromWithCopyLimit_skips
           hand fuel state hreachable
       have hcopy :
           CompletionRespectsCopyLimit
-            (applyStandardChoice hand state .skip hvalid) := by
+            (applyMentsuChoice hand state .skip hvalid) := by
         intro tile
-        dsimp [applyStandardChoice]
+        dsimp [applyMentsuChoice]
         simp only [choiceTiles, Multiset.add_zero]
         exact hstatecopy tile
       have hskip :
-          NextStandardStateAtWithCopyLimit hand tile state
-            (applyStandardChoice hand state .skip hvalid) := by
+          NextMentsuStateAtWithCopyLimit hand tile state
+            (applyMentsuChoice hand state .skip hvalid) := by
         refine ⟨.skip, ?_, hvalid, ?_, rfl⟩
         · apply (mem_choicesForTileWithCopyLimit_iff
             hand state tile .skip).mpr
-          exact ⟨by simp [choicesForTile, allStandardChoices],
+          exact ⟨by simp [choicesForTile, allMentsuChoices],
             ⟨hvalid, hcopy⟩⟩
         · exact hcopy
       have hreachableNext :
           reachableWithinWithCopyLimit hand (fuel + 1)
-            (applyStandardChoice hand state .skip hvalid) := by
+            (applyMentsuChoice hand state .skip hvalid) := by
         exact ⟨state, hreachable,
-          nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
+          nextMentsuStateAtWithCopyLimit_toNextWithCopyLimit
             hand tile state
-            (applyStandardChoice hand state .skip hvalid) hskip⟩
+            (applyMentsuChoice hand state .skip hvalid) hskip⟩
       obtain ⟨final, hpath, hfinal⟩ :=
         ih (fuel + 1)
-          (applyStandardChoice hand state .skip hvalid) hreachableNext
+          (applyMentsuChoice hand state .skip hvalid) hreachableNext
       refine ⟨final, ?_, ?_⟩
-      · exact ⟨applyStandardChoice hand state .skip hvalid, hskip, hpath⟩
+      · exact ⟨applyMentsuChoice hand state .skip hvalid, hskip, hpath⟩
       · have hlength :
             fuel + (tile :: tiles).length = fuel + 1 + tiles.length := by
           simp only [List.length_cons]
@@ -1767,39 +1767,39 @@ lemma reachableOnTilesFromWithCopyLimit_skips
 
 lemma reachableOnTilesFromWithCopyLimit_choice_then_skips
     (hand : Hand) (tile : Tile) (tiles : List Tile) (fuel : Nat)
-    (state : StandardSearchState) (choice : StandardChoice)
+    (state : MentsuSearchState) (choice : MentsuChoice)
     (hreachable : reachableWithinWithCopyLimit hand fuel state)
-    (hchoice : choice ∈ allStandardChoices)
+    (hchoice : choice ∈ allMentsuChoices)
     (htile : tile ∈ choiceTiles choice)
-    (hvalid : ValidStandardChoice hand state choice)
+    (hvalid : ValidMentsuChoice hand state choice)
     (hcopy :
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand state choice hvalid)) :
+        (applyMentsuChoice hand state choice hvalid)) :
     ∃ final,
       reachableOnTilesFromWithCopyLimit hand (tile :: tiles) state final ∧
         reachableWithinWithCopyLimit hand
           (fuel + 1 + tiles.length) final := by
   have hnext :
-      NextStandardStateAtWithCopyLimit hand tile state
-        (applyStandardChoice hand state choice hvalid) :=
-    nextStandardStateAtWithCopyLimit_of_choice
+      NextMentsuStateAtWithCopyLimit hand tile state
+        (applyMentsuChoice hand state choice hvalid) :=
+    nextMentsuStateAtWithCopyLimit_of_choice
       hand tile state choice hchoice htile hvalid hcopy
   have hreachableNext :
       reachableWithinWithCopyLimit hand (fuel + 1)
-        (applyStandardChoice hand state choice hvalid) :=
+        (applyMentsuChoice hand state choice hvalid) :=
     ⟨state, hreachable,
-      nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
-        hand tile state (applyStandardChoice hand state choice hvalid) hnext⟩
+      nextMentsuStateAtWithCopyLimit_toNextWithCopyLimit
+        hand tile state (applyMentsuChoice hand state choice hvalid) hnext⟩
   obtain ⟨final, htail, hfinal⟩ :=
     reachableOnTilesFromWithCopyLimit_skips
       hand tiles (fuel + 1)
-        (applyStandardChoice hand state choice hvalid) hreachableNext
-  refine ⟨final, ⟨applyStandardChoice hand state choice hvalid, hnext, htail⟩, ?_⟩
+        (applyMentsuChoice hand state choice hvalid) hreachableNext
+  refine ⟨final, ⟨applyMentsuChoice hand state choice hvalid, hnext, htail⟩, ?_⟩
   exact hfinal
 
 lemma reachableOnTilesFromWithCopyLimit_append
     (hand : Hand) (left right : List Tile)
-    (start middle final : StandardSearchState)
+    (start middle final : MentsuSearchState)
     (hleft : reachableOnTilesFromWithCopyLimit hand left start middle)
     (hright : reachableOnTilesFromWithCopyLimit hand right middle final) :
     reachableOnTilesFromWithCopyLimit hand (left ++ right) start final := by
@@ -1814,16 +1814,16 @@ lemma reachableOnTilesFromWithCopyLimit_append
 
 lemma reachableOnTilesFromWithCopyLimit_insert_choice
     (hand : Hand) (before after : List Tile) (tile : Tile)
-    (fuel : Nat) (state : StandardSearchState) (choice : StandardChoice)
+    (fuel : Nat) (state : MentsuSearchState) (choice : MentsuChoice)
     (hreachable : reachableWithinWithCopyLimit hand fuel state)
-    (hchoice : choice ∈ allStandardChoices)
+    (hchoice : choice ∈ allMentsuChoices)
     (htile : tile ∈ choiceTiles choice)
     (hvalid : ∀ middle,
       reachableWithinWithCopyLimit hand (fuel + before.length) middle →
-        ValidStandardChoice hand middle choice)
+        ValidMentsuChoice hand middle choice)
     (hcopy : ∀ middle hmiddle,
       CompletionRespectsCopyLimit
-        (applyStandardChoice hand middle choice (hvalid middle hmiddle))) :
+        (applyMentsuChoice hand middle choice (hvalid middle hmiddle))) :
     ∃ final,
       reachableOnTilesFromWithCopyLimit hand
         (before ++ tile :: after) state final ∧
@@ -1841,44 +1841,44 @@ lemma reachableOnTilesFromWithCopyLimit_insert_choice
     hand before (tile :: after) state middle final
     hbefore hchosen
 
-inductive AppliesStandardChoices (hand : Hand) :
-    StandardSearchState → List StandardChoice → StandardSearchState → Prop
-  | nil (state : StandardSearchState) :
-      AppliesStandardChoices hand state [] state
-  | cons (state : StandardSearchState) (choice : StandardChoice)
-      (hchoice : choice ∈ allStandardChoices)
-      (hvalid : ValidStandardChoice hand state choice)
-      (final : StandardSearchState)
+inductive AppliesMentsuChoices (hand : Hand) :
+    MentsuSearchState → List MentsuChoice → MentsuSearchState → Prop
+  | nil (state : MentsuSearchState) :
+      AppliesMentsuChoices hand state [] state
+  | cons (state : MentsuSearchState) (choice : MentsuChoice)
+      (hchoice : choice ∈ allMentsuChoices)
+      (hvalid : ValidMentsuChoice hand state choice)
+      (final : MentsuSearchState)
       (htail :
-        AppliesStandardChoices hand
-          (applyStandardChoice hand state choice hvalid) choices final) :
-      AppliesStandardChoices hand state (choice :: choices) final
+        AppliesMentsuChoices hand
+          (applyMentsuChoice hand state choice hvalid) choices final) :
+      AppliesMentsuChoices hand state (choice :: choices) final
 
-lemma AppliesStandardChoices.used_eq
-    {hand : Hand} {state final : StandardSearchState}
-    {choices : List StandardChoice}
-    (hpath : AppliesStandardChoices hand state choices final) :
-    final.used = state.used + standardChoiceTiles choices := by
+lemma AppliesMentsuChoices.used_eq
+    {hand : Hand} {state final : MentsuSearchState}
+    {choices : List MentsuChoice}
+    (hpath : AppliesMentsuChoices hand state choices final) :
+    final.used = state.used + mentsuChoiceTiles choices := by
   induction hpath with
   | nil =>
-      simp [standardChoiceTiles]
+      simp [mentsuChoiceTiles]
   | @cons state choice hvalid final choices htail ih =>
       cases choice <;>
-        simp_all [applyStandardChoice, standardChoiceTiles, choiceTiles]
+        simp_all [applyMentsuChoice, mentsuChoiceTiles, choiceTiles]
       all_goals
         try rw [ih]
-        try simp [applyStandardChoice, choiceTiles]
+        try simp [applyMentsuChoice, choiceTiles]
         try ac_rfl
 
-lemma nextStandardStateWithCopyLimit_toNext
-    (hand : Hand) (state next : StandardSearchState)
-    (hnext : NextStandardStateWithCopyLimit hand state next) :
-    NextStandardState hand state next := by
+lemma nextMentsuStateWithCopyLimit_toNext
+    (hand : Hand) (state next : MentsuSearchState)
+    (hnext : NextMentsuStateWithCopyLimit hand state next) :
+    NextMentsuState hand state next := by
   rcases hnext with ⟨choice, hchoice, hvalid, _, rfl⟩
   exact ⟨choice, hchoice, hvalid, rfl⟩
 
 lemma reachableWithinWithCopyLimit_to_reachableWithin
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit hand fuel state) :
     reachableWithin hand fuel state := by
   induction fuel generalizing state with
@@ -1888,14 +1888,14 @@ lemma reachableWithinWithCopyLimit_to_reachableWithin
       rcases hreachable with ⟨previous, hprevious, hnext⟩
       rw [reachableWithin_succ_iff]
       exact ⟨previous, ih previous hprevious,
-        nextStandardStateWithCopyLimit_toNext hand previous state hnext⟩
+        nextMentsuStateWithCopyLimit_toNext hand previous state hnext⟩
 
 lemma reachableOnTilesWithCopyLimit_to_reachableWithinWithCopyLimit
-    (hand : Hand) (tiles : List Tile) (state : StandardSearchState)
+    (hand : Hand) (tiles : List Tile) (state : MentsuSearchState)
     (hreachable : reachableOnTilesWithCopyLimit hand tiles state) :
     reachableWithinWithCopyLimit hand tiles.length state := by
   have aux :
-      ∀ (remaining : List Tile) (start state : StandardSearchState)
+      ∀ (remaining : List Tile) (start state : MentsuSearchState)
         (fuel : Nat),
         reachableWithinWithCopyLimit hand fuel start →
         reachableOnTilesFromWithCopyLimit hand remaining start state →
@@ -1912,25 +1912,25 @@ lemma reachableOnTilesWithCopyLimit_to_reachableWithinWithCopyLimit
         have hmiddle :
             reachableWithinWithCopyLimit hand (fuel + 1) middle := by
           exact ⟨start, hprefix,
-            nextStandardStateAtWithCopyLimit_toNextWithCopyLimit
+            nextMentsuStateAtWithCopyLimit_toNextWithCopyLimit
               hand tile start middle hnext⟩
         have hresult := ih middle state (fuel + 1) hmiddle htail
         simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hresult
-  have hresult := aux tiles initialStandardState state 0
+  have hresult := aux tiles initialMentsuState state 0
     (by rfl) hreachable
   simpa using hresult
 
 lemma completedTargetForState_eq_used_add_completion
-    (state : StandardSearchState) (pair : Tile)
+    (state : MentsuSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
     completedTargetForState state pair =
       stateHistoryTiles state +
         taatsuCompletionTiles state.taatsuHistory.reverse := by
   rw [completedTargetForState, completedMeldsForState_tiles state pair hpair]
-  rw [standardTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
+  rw [mentsuTargetWithTaatsuOfState_eq_stateHistoryTiles state pair hpair]
 
 lemma validCounts_completedTarget_of_copyLimit
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin before fuel state)
     (hcopy : CompletionRespectsCopyLimit state)
     (pair : Tile) (hpair : state.pair = some pair) :
@@ -1944,26 +1944,26 @@ lemma validCounts_completedTarget_of_copyLimit
   rw [← reachableWithin_used_eq_historyTiles before fuel state hreachable]
   exact htarget
 
-lemma completedMeldsForState_card (state : StandardSearchState) :
+lemma completedMeldsForState_card (state : MentsuSearchState) :
     (meldsTiles (completedMeldsForState state)).card =
       3 * (state.meldHistory.length + state.taatsuHistory.length) := by
   rw [meldsTiles_card, completedMeldsForState_length]
 
 lemma completedTargetForState_card
-    (state : StandardSearchState) (pair : Tile) :
+    (state : MentsuSearchState) (pair : Tile) :
     (completedTargetForState state pair).card =
       2 + 3 * (state.meldHistory.length + state.taatsuHistory.length) := by
   unfold completedTargetForState
   rw [Multiset.card_add, pairTiles_card, completedMeldsForState_card]
 
 lemma completedTargetForState_sum
-    (state : StandardSearchState) (pair : Tile) :
+    (state : MentsuSearchState) (pair : Tile) :
     (∑ tile : Tile, countsOfTiles (completedTargetForState state pair) tile) =
       2 + 3 * (state.meldHistory.length + state.taatsuHistory.length) := by
   rw [countsOfTiles_sum_eq_card, completedTargetForState_card]
 
 lemma completedTargetForState_sum_of_blockCount
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin before fuel state)
     (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
     (pair : Tile) :
@@ -1978,7 +1978,7 @@ lemma completedTargetForState_sum_of_blockCount
   omega
 
 lemma completedTargetForState_sum_eq_tileCount
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin before fuel state)
     (hcount : state.melds + state.taatsu + before.fixedMelds = 4)
     (hstanding : tileCount before = 14 - 3 * before.fixedMelds)
@@ -1990,52 +1990,52 @@ lemma completedTargetForState_sum_eq_tileCount
     before fuel state hreachable hcount pair]
   exact hstanding.symm
 
-lemma complete_standard_completedTarget
-    (before : Hand) (state : StandardSearchState) (pair : Tile)
+lemma complete_mentsu_completedTarget
+    (before : Hand) (state : MentsuSearchState) (pair : Tile)
     (hvalid : ValidCounts
       (targetHand before (countsOfTiles (completedTargetForState state pair))))
-    (hmelds : HasStandardMeldCount before (completedMeldsForState state)) :
-    Complete .standard
+    (hmelds : HasMentsuMeldCount before (completedMeldsForState state)) :
+    Complete .mentsu
       (targetHand before (countsOfTiles (completedTargetForState state pair))) := by
-  apply complete_standard_targetHand
+  apply complete_mentsu_targetHand
   · exact hvalid
   · exact hmelds
   · exact targetHand_hasTiles_countsOfTiles before
       (completedTargetForState state pair)
 
-/-- A target is a valid standard-form completion for the standing tiles. -/
-def IsStandardTarget
+/-- A target is a valid mentsu-form completion for the standing tiles. -/
+def IsMentsuTarget
     (hand : Hand) (pair : Tile) (melds : List Meld) : Prop :=
-  HasStandardMeldCount hand melds ∧
+  HasMentsuMeldCount hand melds ∧
     ∀ tile, hand.counts tile ≤
-      (standardTarget pair melds).count tile
+      (mentsuTarget pair melds).count tile
 
-/-- The number of additional tiles needed to realize a standard target. -/
-def standardTargetDistance
+/-- The number of additional tiles needed to realize a mentsu target. -/
+def mentsuTargetDistance
     (hand : Hand) (pair : Tile) (melds : List Meld) : Nat :=
-  targetDeficit hand (standardTarget pair melds)
+  targetDeficit hand (mentsuTarget pair melds)
 
-lemma standardTargetDistance_eq_countDeficit
+lemma mentsuTargetDistance_eq_countDeficit
     (hand : Hand) (pair : Tile) (melds : List Meld) :
-    standardTargetDistance hand pair melds =
+    mentsuTargetDistance hand pair melds =
       countDeficit hand.counts
-        (countsOfTiles (standardTarget pair melds)) := by
+        (countsOfTiles (mentsuTarget pair melds)) := by
   rfl
 
-def standardMeldListsOfLength : Nat → Finset (List Meld)
+def mentsuMeldListsOfLength : Nat → Finset (List Meld)
   | 0 => {[]}
   | length + 1 =>
       Finset.univ.biUnion fun meld =>
-        (standardMeldListsOfLength length).image (meld :: ·)
+        (mentsuMeldListsOfLength length).image (meld :: ·)
 
-lemma mem_standardMeldListsOfLength_iff
+lemma mem_mentsuMeldListsOfLength_iff
     (length : Nat) (melds : List Meld) :
-    melds ∈ standardMeldListsOfLength length ↔ melds.length = length := by
+    melds ∈ mentsuMeldListsOfLength length ↔ melds.length = length := by
   induction length generalizing melds with
   | zero =>
-      simp [standardMeldListsOfLength]
+      simp [mentsuMeldListsOfLength]
   | succ length ih =>
-      simp only [standardMeldListsOfLength, Finset.mem_biUnion,
+      simp only [mentsuMeldListsOfLength, Finset.mem_biUnion,
         Finset.mem_univ, true_and, Finset.mem_image]
       constructor
       · rintro ⟨head, tail, htail, rfl⟩
@@ -2051,9 +2051,9 @@ lemma mem_standardMeldListsOfLength_iff
             refine ⟨head, tail, ?_, rfl⟩
             exact ih tail |>.2 (by omega)
 
-def standardTargetConfigurations (fixedMelds : Nat) :
+def mentsuTargetConfigurations (fixedMelds : Nat) :
     Finset (Tile × List Meld) :=
-  Finset.univ ×ˢ standardMeldListsOfLength (4 - fixedMelds)
+  Finset.univ ×ˢ mentsuMeldListsOfLength (4 - fixedMelds)
 
 def validCountsDecidable (hand : Hand) : Decidable (ValidCounts hand) := by
   unfold ValidCounts
@@ -2102,50 +2102,50 @@ lemma validTileMultisetBool_eq_true_iff_targetHand
     (∀ tile, tiles.count tile ≤ 4)
   rfl
 
-lemma mem_standardTargetConfigurations_iff
+lemma mem_mentsuTargetConfigurations_iff
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
     (pair : Tile) (melds : List Meld) :
-    (pair, melds) ∈ standardTargetConfigurations fixedMelds ↔
+    (pair, melds) ∈ mentsuTargetConfigurations fixedMelds ↔
       melds.length + fixedMelds = 4 := by
-  rw [standardTargetConfigurations, Finset.mem_product]
+  rw [mentsuTargetConfigurations, Finset.mem_product]
   simp only [Finset.mem_univ, true_and,
-    mem_standardMeldListsOfLength_iff]
+    mem_mentsuMeldListsOfLength_iff]
   omega
 
-def validStandardTargetConfigurations (hand : Hand) :
+def validMentsuTargetConfigurations (hand : Hand) :
     Finset (Tile × List Meld) :=
-  (standardTargetConfigurations hand.fixedMelds).filter
+  (mentsuTargetConfigurations hand.fixedMelds).filter
     (fun candidate =>
       validCountsBool
         (targetHand hand
           (countsOfTiles
-            (standardTarget candidate.1 candidate.2))) = true)
+            (mentsuTarget candidate.1 candidate.2))) = true)
 
-lemma mem_validStandardTargetConfigurations_iff
+lemma mem_validMentsuTargetConfigurations_iff
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
     (pair : Tile) (melds : List Meld) :
-    (pair, melds) ∈ validStandardTargetConfigurations hand ↔
+    (pair, melds) ∈ validMentsuTargetConfigurations hand ↔
       melds.length + hand.fixedMelds = 4 ∧
       ValidCounts
         (targetHand hand
-          (countsOfTiles (standardTarget pair melds))) := by
+          (countsOfTiles (mentsuTarget pair melds))) := by
   classical
-  rw [validStandardTargetConfigurations, Finset.mem_filter,
-    mem_standardTargetConfigurations_iff
+  rw [validMentsuTargetConfigurations, Finset.mem_filter,
+    mem_mentsuTargetConfigurations_iff
       hand.fixedMelds hfixed pair melds]
   rw [validCountsBool_eq_true_iff]
 
-def standardMeldTileStatesDP : Nat → Finset (Multiset Tile)
+def mentsuMeldTileStatesDP : Nat → Finset (Multiset Tile)
   | 0 => {0}
   | meldCount + 1 =>
       (Finset.univ.biUnion fun meld =>
-        (standardMeldTileStatesDP meldCount).image
+        (mentsuMeldTileStatesDP meldCount).image
           (fun tiles => meldTiles meld + tiles)).filter
         (fun tiles => validTileMultisetBool tiles = true)
 
-lemma mem_standardMeldTileStatesDP_iff
+lemma mem_mentsuMeldTileStatesDP_iff
     (meldCount : Nat) (tiles : Multiset Tile) :
-    tiles ∈ standardMeldTileStatesDP meldCount ↔
+    tiles ∈ mentsuMeldTileStatesDP meldCount ↔
       ∃ melds, melds.length = meldCount ∧
         meldsTiles melds = tiles ∧ validTileMultisetBool tiles = true := by
   induction meldCount generalizing tiles with
@@ -2165,7 +2165,7 @@ lemma mem_standardMeldTileStatesDP_iff
         | cons meld melds =>
             simp at hlength
   | succ meldCount ih =>
-      simp only [standardMeldTileStatesDP, Finset.mem_filter,
+      simp only [mentsuMeldTileStatesDP, Finset.mem_filter,
         Finset.mem_biUnion, Finset.mem_univ, true_and,
         Finset.mem_image]
       constructor
@@ -2197,7 +2197,7 @@ lemma mem_standardMeldTileStatesDP_iff
                 (meldsTiles melds) (meldTiles meld)
               simpa [Multiset.add_comm] using hvalidFull
             have hprevious :
-                meldsTiles melds ∈ standardMeldTileStatesDP meldCount :=
+                meldsTiles melds ∈ mentsuMeldTileStatesDP meldCount :=
               (ih (meldsTiles melds)).2
                 ⟨melds, by omega, rfl, htailValid⟩
             refine ⟨⟨meld, meldsTiles melds, hprevious, ?_⟩, hvalid⟩
@@ -2206,28 +2206,28 @@ lemma mem_standardMeldTileStatesDP_iff
                   meldsTiles (meld :: melds) := rfl
               _ = tiles := htiles
 
-def standardTargetTileStatesDP (fixedMelds : Nat) :
+def mentsuTargetTileStatesDP (fixedMelds : Nat) :
     Finset (Multiset Tile) :=
   (Finset.univ.biUnion fun pair =>
-    (standardMeldTileStatesDP (4 - fixedMelds)).image
+    (mentsuMeldTileStatesDP (4 - fixedMelds)).image
       (fun meldTiles => pairTiles pair + meldTiles)).filter
     (fun tiles => validTileMultisetBool tiles = true)
 
-lemma mem_standardTargetTileStatesDP_iff
+lemma mem_mentsuTargetTileStatesDP_iff
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4)
     (tiles : Multiset Tile) :
-    tiles ∈ standardTargetTileStatesDP fixedMelds ↔
+    tiles ∈ mentsuTargetTileStatesDP fixedMelds ↔
       ∃ pair melds,
         melds.length + fixedMelds = 4 ∧
-        standardTarget pair melds = tiles ∧
+        mentsuTarget pair melds = tiles ∧
         validTileMultisetBool tiles = true := by
-  unfold standardTargetTileStatesDP
+  unfold mentsuTargetTileStatesDP
   simp only [Finset.mem_filter, Finset.mem_biUnion,
     Finset.mem_univ, true_and, Finset.mem_image]
   constructor
   · rintro ⟨⟨pair, meldTiles, hmeldTiles, rfl⟩, hvalid⟩
     obtain ⟨melds, hlength, rfl, _⟩ :=
-      (mem_standardMeldTileStatesDP_iff (4 - fixedMelds) meldTiles).mp
+      (mem_mentsuMeldTileStatesDP_iff (4 - fixedMelds) meldTiles).mp
         hmeldTiles
     refine ⟨pair, melds, ?_, rfl, hvalid⟩
     omega
@@ -2236,24 +2236,24 @@ lemma mem_standardTargetTileStatesDP_iff
         validTileMultisetBool (meldsTiles melds) = true := by
       apply validTileMultisetBool_add_left
         (meldsTiles melds) (pairTiles pair)
-      simpa [standardTarget, Multiset.add_comm] using hvalid
+      simpa [mentsuTarget, Multiset.add_comm] using hvalid
     refine ⟨⟨pair, meldsTiles melds, ?_, rfl⟩, hvalid⟩
-    · exact (mem_standardMeldTileStatesDP_iff (4 - fixedMelds)
+    · exact (mem_mentsuMeldTileStatesDP_iff (4 - fixedMelds)
         (meldsTiles melds)).2
         ⟨melds, by omega, rfl, hmeldValid⟩
 
-def standardTargetCostStatesDP (hand : Hand) :
+def mentsuTargetCostStatesDP (hand : Hand) :
     Finset (Multiset Tile × Nat) :=
-  (standardTargetTileStatesDP hand.fixedMelds).image
+  (mentsuTargetTileStatesDP hand.fixedMelds).image
     (fun tiles =>
       (tiles, countDeficit hand.counts (countsOfTiles tiles)))
 
-lemma mem_standardTargetCostStatesDP_iff
+lemma mem_mentsuTargetCostStatesDP_iff
     (hand : Hand) (state : Multiset Tile × Nat) :
-    state ∈ standardTargetCostStatesDP hand ↔
-      state.1 ∈ standardTargetTileStatesDP hand.fixedMelds ∧
+    state ∈ mentsuTargetCostStatesDP hand ↔
+      state.1 ∈ mentsuTargetTileStatesDP hand.fixedMelds ∧
       state.2 = countDeficit hand.counts (countsOfTiles state.1) := by
-  unfold standardTargetCostStatesDP
+  unfold mentsuTargetCostStatesDP
   simp only [Finset.mem_image]
   constructor
   · rintro ⟨tiles, htiles, heq⟩
@@ -2286,7 +2286,7 @@ lemma countDeficit_tiles_add_mono
   omega
 
 /-- Extend a target state and add only the newly incurred deficit. -/
-def standardCostStateAdd (hand : Hand)
+def mentsuCostStateAdd (hand : Hand)
     (state : Multiset Tile × Nat) (extra : Multiset Tile) :
     Multiset Tile × Nat :=
   let tiles := state.1 + extra
@@ -2294,21 +2294,21 @@ def standardCostStateAdd (hand : Hand)
     state.2 + (countDeficit hand.counts (countsOfTiles tiles) -
       countDeficit hand.counts (countsOfTiles state.1)))
 
-lemma standardCostStateAdd_cost
+lemma mentsuCostStateAdd_cost
     (hand : Hand) (state : Multiset Tile × Nat) (extra : Multiset Tile)
     (hcost :
       state.2 = countDeficit hand.counts (countsOfTiles state.1)) :
-    (standardCostStateAdd hand state extra).2 =
+    (mentsuCostStateAdd hand state extra).2 =
       countDeficit hand.counts
-        (countsOfTiles ((standardCostStateAdd hand state extra).1)) := by
-  unfold standardCostStateAdd
+        (countsOfTiles ((mentsuCostStateAdd hand state extra).1)) := by
+  unfold mentsuCostStateAdd
   dsimp only
   rw [hcost]
   have hmono := countDeficit_tiles_add_mono
     hand.counts state.1 extra
   omega
 
-def standardMeldCostStatesDP (hand : Hand) (initialTiles : Multiset Tile) :
+def mentsuMeldCostStatesDP (hand : Hand) (initialTiles : Multiset Tile) :
     Nat → Finset (Multiset Tile × Nat)
   | 0 =>
       Finset.filter
@@ -2318,44 +2318,44 @@ def standardMeldCostStatesDP (hand : Hand) (initialTiles : Multiset Tile) :
           Finset (Multiset Tile × Nat))
   | meldCount + 1 =>
       (Finset.univ.biUnion fun meld =>
-        (standardMeldCostStatesDP hand initialTiles meldCount).image
-          (fun state => standardCostStateAdd hand state (meldTiles meld)))
+        (mentsuMeldCostStatesDP hand initialTiles meldCount).image
+          (fun state => mentsuCostStateAdd hand state (meldTiles meld)))
         |>.filter (fun state => validTileMultisetBool state.1 = true)
 
-lemma standardMeldCostStatesDP_cost
+lemma mentsuMeldCostStatesDP_cost
     (hand : Hand) (initialTiles : Multiset Tile) (meldCount : Nat)
     (state : Multiset Tile × Nat)
-    (hstate : state ∈ standardMeldCostStatesDP hand initialTiles meldCount) :
+    (hstate : state ∈ mentsuMeldCostStatesDP hand initialTiles meldCount) :
     state.2 = countDeficit hand.counts (countsOfTiles state.1) := by
   induction meldCount generalizing state with
   | zero =>
-      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+      simp only [mentsuMeldCostStatesDP, Finset.mem_filter,
         Finset.mem_singleton] at hstate
       rw [hstate.1]
   | succ meldCount ih =>
-      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+      simp only [mentsuMeldCostStatesDP, Finset.mem_filter,
         Finset.mem_biUnion, Finset.mem_univ, true_and,
         Finset.mem_image] at hstate
       rcases hstate with ⟨⟨meld, previous, hprevious, heq⟩, _⟩
       have hpreviousCost := ih previous hprevious
       have hnextCost :=
-        standardCostStateAdd_cost hand previous (meldTiles meld)
+        mentsuCostStateAdd_cost hand previous (meldTiles meld)
           hpreviousCost
       calc
         state.2 =
-            (standardCostStateAdd hand previous (meldTiles meld)).2 :=
+            (mentsuCostStateAdd hand previous (meldTiles meld)).2 :=
           (congrArg Prod.snd heq).symm
         _ = countDeficit hand.counts
             (countsOfTiles
-              (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+              (mentsuCostStateAdd hand previous (meldTiles meld)).1) :=
           hnextCost
         _ = countDeficit hand.counts (countsOfTiles state.1) := by
           rw [congrArg Prod.fst heq]
 
-lemma mem_standardMeldCostStatesDP_iff
+lemma mem_mentsuMeldCostStatesDP_iff
     (hand : Hand) (initialTiles : Multiset Tile)
     (meldCount : Nat) (state : Multiset Tile × Nat) :
-    state ∈ standardMeldCostStatesDP hand initialTiles meldCount ↔
+    state ∈ mentsuMeldCostStatesDP hand initialTiles meldCount ↔
       ∃ melds,
         melds.length = meldCount ∧
         meldsTiles melds + initialTiles = state.1 ∧
@@ -2363,7 +2363,7 @@ lemma mem_standardMeldCostStatesDP_iff
         validTileMultisetBool state.1 = true := by
   induction meldCount generalizing state with
   | zero =>
-      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+      simp only [mentsuMeldCostStatesDP, Finset.mem_filter,
         Finset.mem_singleton]
       constructor
       · rintro ⟨rfl, hvalid⟩
@@ -2388,27 +2388,27 @@ lemma mem_standardMeldCostStatesDP_iff
         | cons meld melds =>
             simp at hlength
   | succ meldCount ih =>
-      simp only [standardMeldCostStatesDP, Finset.mem_filter,
+      simp only [mentsuMeldCostStatesDP, Finset.mem_filter,
         Finset.mem_biUnion, Finset.mem_univ, true_and,
         Finset.mem_image]
       constructor
       · intro hstate
         rcases hstate with ⟨⟨meld, previous, hprevious, heq⟩, hvalid⟩
         have hpreviousCost :=
-          standardMeldCostStatesDP_cost hand initialTiles meldCount
+          mentsuMeldCostStatesDP_cost hand initialTiles meldCount
             previous hprevious
         have hnextCost :=
-          standardCostStateAdd_cost hand previous (meldTiles meld)
+          mentsuCostStateAdd_cost hand previous (meldTiles meld)
             hpreviousCost
         have hcost : state.2 =
             countDeficit hand.counts (countsOfTiles state.1) := by
           calc
             state.2 =
-                (standardCostStateAdd hand previous (meldTiles meld)).2 :=
+                (mentsuCostStateAdd hand previous (meldTiles meld)).2 :=
               (congrArg Prod.snd heq).symm
             _ = countDeficit hand.counts
                 (countsOfTiles
-                  (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+                  (mentsuCostStateAdd hand previous (meldTiles meld)).1) :=
               hnextCost
             _ = countDeficit hand.counts (countsOfTiles state.1) := by
               rw [congrArg Prod.fst heq]
@@ -2423,8 +2423,8 @@ lemma mem_standardMeldCostStatesDP_iff
                     meldTiles meld + meldsTiles melds by rfl]
                 ac_rfl
           _ = meldTiles meld + previous.1 := by rw [htiles]
-          _ = (standardCostStateAdd hand previous (meldTiles meld)).1 := by
-                simp [standardCostStateAdd, Multiset.add_comm]
+          _ = (mentsuCostStateAdd hand previous (meldTiles meld)).1 := by
+                simp [mentsuCostStateAdd, Multiset.add_comm]
           _ = state.1 := hfst
       · rintro ⟨melds, hlength, htiles, hcost, hvalid⟩
         cases melds with
@@ -2452,18 +2452,18 @@ lemma mem_standardMeldCostStatesDP_iff
                 countDeficit hand.counts
                   (countsOfTiles (meldsTiles melds + initialTiles)))
             have hprevious :
-                previous ∈ standardMeldCostStatesDP hand initialTiles meldCount :=
+                previous ∈ mentsuMeldCostStatesDP hand initialTiles meldCount :=
               (ih previous).2
                 ⟨melds, by omega, rfl, rfl, hpreviousValid⟩
             have hnextCost :=
-              standardCostStateAdd_cost hand previous (meldTiles meld) rfl
+              mentsuCostStateAdd_cost hand previous (meldTiles meld) rfl
             have hfirst :
-                (standardCostStateAdd hand previous (meldTiles meld)).1 =
+                (mentsuCostStateAdd hand previous (meldTiles meld)).1 =
                   state.1 := by
               calc
-                (standardCostStateAdd hand previous (meldTiles meld)).1 =
+                (mentsuCostStateAdd hand previous (meldTiles meld)).1 =
                     (meldsTiles melds + initialTiles) + meldTiles meld := by
-                      simp [standardCostStateAdd, previous]
+                      simp [mentsuCostStateAdd, previous]
                 _ = meldsTiles (meld :: melds) + initialTiles :=
                   htilesShape.symm
                 _ = state.1 := htiles
@@ -2471,142 +2471,142 @@ lemma mem_standardMeldCostStatesDP_iff
             apply Prod.ext
             · exact hfirst
             · calc
-                (standardCostStateAdd hand previous (meldTiles meld)).2 =
+                (mentsuCostStateAdd hand previous (meldTiles meld)).2 =
                     countDeficit hand.counts
                       (countsOfTiles
-                        (standardCostStateAdd hand previous (meldTiles meld)).1) :=
+                        (mentsuCostStateAdd hand previous (meldTiles meld)).1) :=
                   hnextCost
                 _ = countDeficit hand.counts
                     (countsOfTiles state.1) := by
                       rw [hfirst]
                 _ = state.2 := hcost.symm
 
-def recursiveStandardTargetCostStatesDP (hand : Hand) :
+def recursiveMentsuTargetCostStatesDP (hand : Hand) :
     Finset (Multiset Tile × Nat) :=
   Finset.univ.biUnion fun pair =>
-    standardMeldCostStatesDP hand (pairTiles pair)
+    mentsuMeldCostStatesDP hand (pairTiles pair)
       (4 - hand.fixedMelds)
 
-lemma recursiveStandardTargetCostStatesDP_eq
+lemma recursiveMentsuTargetCostStatesDP_eq
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) :
-    recursiveStandardTargetCostStatesDP hand =
-      standardTargetCostStatesDP hand := by
+    recursiveMentsuTargetCostStatesDP hand =
+      mentsuTargetCostStatesDP hand := by
   ext state
-  unfold recursiveStandardTargetCostStatesDP
+  unfold recursiveMentsuTargetCostStatesDP
   simp only [Finset.mem_biUnion, Finset.mem_univ, true_and]
-  rw [mem_standardTargetCostStatesDP_iff]
+  rw [mem_mentsuTargetCostStatesDP_iff]
   constructor
   · rintro ⟨pair, hstate⟩
     obtain ⟨melds, hlength, htiles, hcost, hvalid⟩ :=
-      (mem_standardMeldCostStatesDP_iff hand (pairTiles pair)
+      (mem_mentsuMeldCostStatesDP_iff hand (pairTiles pair)
         (4 - hand.fixedMelds) state).mp hstate
     have htargetLength : melds.length + hand.fixedMelds = 4 := by
       omega
     have htarget :
-        standardTarget pair melds = state.1 := by
-      rw [standardTarget]
+        mentsuTarget pair melds = state.1 := by
+      rw [mentsuTarget]
       calc
         pairTiles pair + meldsTiles melds =
             meldsTiles melds + pairTiles pair := by ac_rfl
         _ = state.1 := htiles
     have htilesTarget :
-        state.1 ∈ standardTargetTileStatesDP hand.fixedMelds :=
-      (mem_standardTargetTileStatesDP_iff hand.fixedMelds hfixed
+        state.1 ∈ mentsuTargetTileStatesDP hand.fixedMelds :=
+      (mem_mentsuTargetTileStatesDP_iff hand.fixedMelds hfixed
         state.1).2
         ⟨pair, melds, htargetLength, htarget, hvalid⟩
     exact ⟨htilesTarget, hcost⟩
   · rintro ⟨htiles, hcost⟩
     obtain ⟨pair, melds, hlength, htarget, hvalid⟩ :=
-      (mem_standardTargetTileStatesDP_iff hand.fixedMelds hfixed
+      (mem_mentsuTargetTileStatesDP_iff hand.fixedMelds hfixed
         state.1).mp htiles
     refine ⟨pair, ?_⟩
-    apply (mem_standardMeldCostStatesDP_iff hand (pairTiles pair)
+    apply (mem_mentsuMeldCostStatesDP_iff hand (pairTiles pair)
       (4 - hand.fixedMelds) state).2
     refine ⟨melds, ?_, ?_, hcost, ?_⟩
     · omega
-    · rw [← htarget, standardTarget]
+    · rw [← htarget, mentsuTarget]
       ac_rfl
     · exact hvalid
 
-def validStandardTargetDistances (hand : Hand) :
+def validMentsuTargetDistances (hand : Hand) :
     Finset Nat :=
-  (recursiveStandardTargetCostStatesDP hand).image Prod.snd
+  (recursiveMentsuTargetCostStatesDP hand).image Prod.snd
 
-lemma standardTargetCostDistances_eq_tileDistances
+lemma mentsuTargetCostDistances_eq_tileDistances
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) :
-    validStandardTargetDistances hand =
-      (standardTargetTileStatesDP hand.fixedMelds).image
+    validMentsuTargetDistances hand =
+      (mentsuTargetTileStatesDP hand.fixedMelds).image
         (fun tiles => countDeficit hand.counts (countsOfTiles tiles)) := by
-  unfold validStandardTargetDistances
-  rw [recursiveStandardTargetCostStatesDP_eq hand hfixed]
+  unfold validMentsuTargetDistances
+  rw [recursiveMentsuTargetCostStatesDP_eq hand hfixed]
   ext distance
-  simp [standardTargetCostStatesDP, Finset.image_image]
+  simp [mentsuTargetCostStatesDP, Finset.image_image]
 
 /-- Exhaustive target-state search; equal tile multisets are deduplicated at each meld count. -/
-def standardTargetMinimumSearch (hand : Hand) : Option Int :=
-  let distances := validStandardTargetDistances hand
+def mentsuTargetMinimumSearch (hand : Hand) : Option Int :=
+  let distances := validMentsuTargetDistances hand
   if h : distances.Nonempty then
     some ((distances.min' h : Int) - 1)
   else
     none
 
-lemma mem_validStandardTargetDistances_iff
+lemma mem_validMentsuTargetDistances_iff
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4) (distance : Nat) :
-    distance ∈ validStandardTargetDistances hand ↔
+    distance ∈ validMentsuTargetDistances hand ↔
       ∃ pair melds,
         melds.length + hand.fixedMelds = 4 ∧
         ValidCounts
           (targetHand hand
-            (countsOfTiles (standardTarget pair melds))) ∧
-        standardTargetDistance hand pair melds = distance := by
+            (countsOfTiles (mentsuTarget pair melds))) ∧
+        mentsuTargetDistance hand pair melds = distance := by
   classical
-  rw [standardTargetCostDistances_eq_tileDistances hand hfixed]
+  rw [mentsuTargetCostDistances_eq_tileDistances hand hfixed]
   simp only [Finset.mem_image]
   constructor
   · rintro ⟨tiles, htiles, hdistance⟩
     obtain ⟨pair, melds, hmelds, htarget, hcopy⟩ :=
-      (mem_standardTargetTileStatesDP_iff
+      (mem_mentsuTargetTileStatesDP_iff
         hand.fixedMelds hfixed tiles).mp htiles
     refine ⟨pair, melds, hmelds, ?_, ?_⟩
     · rw [← htarget] at hcopy
       exact (validTileMultisetBool_eq_true_iff_targetHand
-        hand (standardTarget pair melds)).mp hcopy
+        hand (mentsuTarget pair melds)).mp hcopy
     · rw [← htarget] at hdistance
-      rw [standardTargetDistance_eq_countDeficit]
+      rw [mentsuTargetDistance_eq_countDeficit]
       exact hdistance
   · rintro ⟨pair, melds, hmelds, hvalid, hdistance⟩
-    let tiles := standardTarget pair melds
+    let tiles := mentsuTarget pair melds
     have hcopy :
         validTileMultisetBool tiles = true :=
       (validTileMultisetBool_eq_true_iff_targetHand hand tiles).mpr hvalid
     have htiles :
-        tiles ∈ standardTargetTileStatesDP hand.fixedMelds :=
-      (mem_standardTargetTileStatesDP_iff
+        tiles ∈ mentsuTargetTileStatesDP hand.fixedMelds :=
+      (mem_mentsuTargetTileStatesDP_iff
         hand.fixedMelds hfixed tiles).mpr
         ⟨pair, melds, hmelds, rfl, hcopy⟩
     refine ⟨tiles, htiles, ?_⟩
-    rw [standardTargetDistance_eq_countDeficit] at hdistance
+    rw [mentsuTargetDistance_eq_countDeficit] at hdistance
     exact hdistance
 
-lemma exists_min_validStandardTargetDistance
+lemma exists_min_validMentsuTargetDistance
     (hand : Hand) (hfixed : hand.fixedMelds ≤ 4)
     (hcandidate :
       ∃ pair melds,
         melds.length + hand.fixedMelds = 4 ∧
         ValidCounts
           (targetHand hand
-            (countsOfTiles (standardTarget pair melds)))) :
-    ∃ distance, distance ∈ validStandardTargetDistances hand ∧
+            (countsOfTiles (mentsuTarget pair melds)))) :
+    ∃ distance, distance ∈ validMentsuTargetDistances hand ∧
       ∀ otherDistance,
-        otherDistance ∈ validStandardTargetDistances hand →
+        otherDistance ∈ validMentsuTargetDistances hand →
           distance ≤ otherDistance := by
   classical
-  let distances := validStandardTargetDistances hand
+  let distances := validMentsuTargetDistances hand
   have hnonempty : distances.Nonempty := by
     obtain ⟨pair, melds, hmelds, hvalid⟩ := hcandidate
-    refine ⟨standardTargetDistance hand pair melds, ?_⟩
-    exact (mem_validStandardTargetDistances_iff
-      hand hfixed (standardTargetDistance hand pair melds)).2
+    refine ⟨mentsuTargetDistance hand pair melds, ?_⟩
+    exact (mem_validMentsuTargetDistances_iff
+      hand hfixed (mentsuTargetDistance hand pair melds)).2
       ⟨pair, melds, hmelds, hvalid, rfl⟩
   let distance := distances.min' hnonempty
   refine ⟨distance, ?_, ?_⟩
@@ -2615,83 +2615,83 @@ lemma exists_min_validStandardTargetDistance
   · intro otherDistance hother
     exact Finset.min'_le distances otherDistance hother
 
-lemma exists_standardTarget_distance_le_of_reachesCompletion
+lemma exists_mentsuTarget_distance_le_of_reachesCompletion
     (before : Hand) (distance : Nat)
-    (hreach : ReachesCompletion Complete .standard before distance) :
+    (hreach : ReachesCompletion Complete .mentsu before distance) :
     ∃ pair melds,
       melds.length + before.fixedMelds = 4 ∧
         ValidCounts
           (targetHand before
-            (countsOfTiles (standardTarget pair melds))) ∧
-        standardTargetDistance before pair melds ≤ distance := by
+            (countsOfTiles (mentsuTarget pair melds))) ∧
+        mentsuTargetDistance before pair melds ≤ distance := by
   obtain ⟨after, hcomplete, hfixed, hdeficit⟩ :=
-    exists_complete_standard_with_deficit_le before distance hreach
+    exists_complete_mentsu_with_deficit_le before distance hreach
   rcases hcomplete with ⟨hvalidAfter, pair, melds, hmelds, htiles⟩
   have hcounts :
       after.counts =
-        countsOfTiles (standardTarget pair melds) := by
+        countsOfTiles (mentsuTarget pair melds) := by
     funext tile
     change after.counts tile =
-      (standardTarget pair melds).count tile
+      (mentsuTarget pair melds).count tile
     exact htiles tile
   have hvalidTarget :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))) := by
+          (countsOfTiles (mentsuTarget pair melds))) := by
     intro tile
-    change (countsOfTiles (standardTarget pair melds)) tile ≤ 4
+    change (countsOfTiles (mentsuTarget pair melds)) tile ≤ 4
     rw [← hcounts]
     exact hvalidAfter tile
   refine ⟨pair, melds, ?_, hvalidTarget, ?_⟩
   · rw [← hfixed]
     exact hmelds
-  · rw [standardTargetDistance_eq_countDeficit]
+  · rw [mentsuTargetDistance_eq_countDeficit]
     simpa [hcounts] using hdeficit
 
-lemma no_shorter_standard_completion_of_minimal_standardTargetDistance
+lemma no_shorter_mentsu_completion_of_minimal_mentsuTargetDistance
     (before : Hand) (pair : Tile) (melds : List Meld)
     (distance : Nat)
-    (hdistance : standardTargetDistance before pair melds = distance)
+    (hdistance : mentsuTargetDistance before pair melds = distance)
     (hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + before.fixedMelds = 4 →
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance before pair melds ≤
-            standardTargetDistance before otherPair otherMelds) :
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance before pair melds ≤
+            mentsuTargetDistance before otherPair otherMelds) :
     ∀ smaller : Nat, smaller < distance →
-      ¬ ReachesCompletion Complete .standard before smaller := by
+      ¬ ReachesCompletion Complete .mentsu before smaller := by
   intro smaller hsmaller hreach
   obtain ⟨otherPair, otherMelds, hmelds, hvalid, hotherDistance⟩ :=
-    exists_standardTarget_distance_le_of_reachesCompletion
+    exists_mentsuTarget_distance_le_of_reachesCompletion
       before smaller hreach
   have hminimal := hminimalTarget otherPair otherMelds hmelds hvalid
   omega
 
-lemma standardTargetDistance_eq_zero_iff
+lemma mentsuTargetDistance_eq_zero_iff
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
       (∑ tile : Tile, hand.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile) :
-    standardTargetDistance hand pair melds = 0 ↔
-      hand.counts = countsOfTiles (standardTarget pair melds) := by
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile) :
+    mentsuTargetDistance hand pair melds = 0 ↔
+      hand.counts = countsOfTiles (mentsuTarget pair melds) := by
   constructor
   · intro hdistance
     have hdeficit :
         countDeficit hand.counts
-          (countsOfTiles (standardTarget pair melds)) = 0 := by
-      rw [← standardTargetDistance_eq_countDeficit]
+          (countsOfTiles (mentsuTarget pair melds)) = 0 := by
+      rw [← mentsuTargetDistance_eq_countDeficit]
       exact hdistance
     have hzero :
         ∀ tile ∈ (Finset.univ : Finset Tile),
-          (countsOfTiles (standardTarget pair melds)) tile -
+          (countsOfTiles (mentsuTarget pair melds)) tile -
               hand.counts tile = 0 := by
       apply (Finset.sum_eq_zero_iff_of_nonneg
         (fun tile _ => Nat.zero_le _)).mp
       exact hdeficit
     have hle :
-        ∀ tile, (countsOfTiles (standardTarget pair melds)) tile ≤
+        ∀ tile, (countsOfTiles (mentsuTarget pair melds)) tile ≤
           hand.counts tile := by
       intro tile
       have hzeroTile := hzero tile (Finset.mem_univ tile)
@@ -2700,186 +2700,186 @@ lemma standardTargetDistance_eq_zero_iff
     intro tile
     have heq :
         ∀ tile ∈ (Finset.univ : Finset Tile),
-          (countsOfTiles (standardTarget pair melds)) tile =
+          (countsOfTiles (mentsuTarget pair melds)) tile =
             hand.counts tile := by
       apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
-        (f := countsOfTiles (standardTarget pair melds))
+        (f := countsOfTiles (mentsuTarget pair melds))
         (g := hand.counts)
         (fun tile _ => hle tile)).mp
       exact hsum.symm
     exact (heq tile (Finset.mem_univ tile)).symm
   · intro hcounts
-    rw [standardTargetDistance_eq_countDeficit]
+    rw [mentsuTargetDistance_eq_countDeficit]
     simp [countDeficit, hcounts]
 
-lemma standardTargetDistance_pos_iff
+lemma mentsuTargetDistance_pos_iff
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
       (∑ tile : Tile, hand.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile) :
-    0 < standardTargetDistance hand pair melds ↔
-      hand.counts ≠ countsOfTiles (standardTarget pair melds) := by
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile) :
+    0 < mentsuTargetDistance hand pair melds ↔
+      hand.counts ≠ countsOfTiles (mentsuTarget pair melds) := by
   constructor
   · intro hpos hcounts
-    have hzero : standardTargetDistance hand pair melds = 0 :=
-      (standardTargetDistance_eq_zero_iff hand pair melds hsum).mpr hcounts
+    have hzero : mentsuTargetDistance hand pair melds = 0 :=
+      (mentsuTargetDistance_eq_zero_iff hand pair melds hsum).mpr hcounts
     omega
   · intro hne
     exact Nat.pos_of_ne_zero (by
       intro hzero
       exact hne
-        ((standardTargetDistance_eq_zero_iff hand pair melds hsum).mp hzero))
+        ((mentsuTargetDistance_eq_zero_iff hand pair melds hsum).mp hzero))
 
-lemma standardTargetDistance_exchange
+lemma mentsuTargetDistance_exchange
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (discarded drawn : Tile)
     (hdrawn :
-      (standardTarget pair melds).count drawn > hand.counts drawn)
+      (mentsuTarget pair melds).count drawn > hand.counts drawn)
     (hdiscarded :
       hand.counts discarded >
-        (standardTarget pair melds).count discarded)
+        (mentsuTarget pair melds).count discarded)
     (hne : discarded ≠ drawn) :
-    standardTargetDistance
+    mentsuTargetDistance
         (exchangeHand hand discarded drawn) pair melds =
-      standardTargetDistance hand pair melds - 1 := by
-  rw [standardTargetDistance_eq_countDeficit,
-    standardTargetDistance_eq_countDeficit]
+      mentsuTargetDistance hand pair melds - 1 := by
+  rw [mentsuTargetDistance_eq_countDeficit,
+    mentsuTargetDistance_eq_countDeficit]
   exact countDeficit_exchange
-    (countsOfTiles (standardTarget pair melds))
+    (countsOfTiles (mentsuTarget pair melds))
     hand discarded drawn hdrawn hdiscarded hne
 
-lemma exists_standardTarget_exchange
+lemma exists_mentsuTarget_exchange
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
       (∑ tile : Tile, hand.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hne :
-      hand.counts ≠ countsOfTiles (standardTarget pair melds)) :
+      hand.counts ≠ countsOfTiles (mentsuTarget pair melds)) :
     ∃ discarded drawn,
-      (standardTarget pair melds).count drawn > hand.counts drawn ∧
+      (mentsuTarget pair melds).count drawn > hand.counts drawn ∧
       hand.counts discarded >
-        (standardTarget pair melds).count discarded ∧
+        (mentsuTarget pair melds).count discarded ∧
       discarded ≠ drawn ∧
-      standardTargetDistance
+      mentsuTargetDistance
           (exchangeHand hand discarded drawn) pair melds =
-        standardTargetDistance hand pair melds - 1 := by
+        mentsuTargetDistance hand pair melds - 1 := by
   obtain ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles⟩ :=
     exists_target_exchange_tiles hand
-      (countsOfTiles (standardTarget pair melds)) hsum hne
+      (countsOfTiles (mentsuTarget pair melds)) hsum hne
   refine ⟨discarded, drawn, hdrawn, hdiscarded, hneTiles, ?_⟩
-  exact standardTargetDistance_exchange
+  exact mentsuTargetDistance_exchange
     hand pair melds discarded drawn hdrawn hdiscarded hneTiles
 
-lemma exists_standardTarget_exchange_of_pos
+lemma exists_mentsuTarget_exchange_of_pos
     (hand : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
       (∑ tile : Tile, hand.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
-    (hpos : 0 < standardTargetDistance hand pair melds) :
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
+    (hpos : 0 < mentsuTargetDistance hand pair melds) :
     ∃ discarded drawn,
-      (standardTarget pair melds).count drawn > hand.counts drawn ∧
+      (mentsuTarget pair melds).count drawn > hand.counts drawn ∧
       hand.counts discarded >
-        (standardTarget pair melds).count discarded ∧
+        (mentsuTarget pair melds).count discarded ∧
       discarded ≠ drawn ∧
-      standardTargetDistance
+      mentsuTargetDistance
           (exchangeHand hand discarded drawn) pair melds =
-        standardTargetDistance hand pair melds - 1 := by
-  apply exists_standardTarget_exchange hand pair melds hsum
-  exact (standardTargetDistance_pos_iff hand pair melds hsum).mp hpos
+        mentsuTargetDistance hand pair melds - 1 := by
+  apply exists_mentsuTarget_exchange hand pair melds hsum
+  exact (mentsuTargetDistance_pos_iff hand pair melds hsum).mp hpos
 
-lemma reachesCompletion_standard_of_standardTarget
+lemma reachesCompletion_mentsu_of_mentsuTarget
     (before : Hand) (pair : Tile) (melds : List Meld)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4) :
-    ReachesCompletion Complete .standard before
-      (standardTargetDistance before pair melds) := by
-  rw [standardTargetDistance_eq_countDeficit]
-  apply reachesCompletion_standard_of_equal_sum
+    ReachesCompletion Complete .mentsu before
+      (mentsuTargetDistance before pair melds) := by
+  rw [mentsuTargetDistance_eq_countDeficit]
+  apply reachesCompletion_mentsu_of_equal_sum
     before
-    (countsOfTiles (standardTarget pair melds))
+    (countsOfTiles (mentsuTarget pair melds))
     pair melds hsum hvalid hmelds
   exact targetHand_hasTiles_countsOfTiles before
-    (standardTarget pair melds)
+    (mentsuTarget pair melds)
 
-lemma complete_standard_of_standardTarget_distance_zero
+lemma complete_mentsu_of_mentsuTarget_distance_zero
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = 0)
+    (hdistance : mentsuTargetDistance before pair melds = 0)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4) :
-    Complete .standard before := by
+    Complete .mentsu before := by
   have hdeficit :
       countDeficit before.counts
-        (countsOfTiles (standardTarget pair melds)) = 0 := by
-    rw [← standardTargetDistance_eq_countDeficit]
+        (countsOfTiles (mentsuTarget pair melds)) = 0 := by
+    rw [← mentsuTargetDistance_eq_countDeficit]
     exact hdistance
   have hzero :
       ∀ tile ∈ (Finset.univ : Finset Tile),
-        (countsOfTiles (standardTarget pair melds)) tile -
+        (countsOfTiles (mentsuTarget pair melds)) tile -
             before.counts tile = 0 := by
     apply (Finset.sum_eq_zero_iff_of_nonneg
       (fun tile _ => Nat.zero_le _)).mp
     exact hdeficit
   have hle :
-      ∀ tile, (countsOfTiles (standardTarget pair melds)) tile ≤
+      ∀ tile, (countsOfTiles (mentsuTarget pair melds)) tile ≤
         before.counts tile := by
     intro tile
     have hzeroTile := hzero tile (Finset.mem_univ tile)
     omega
   have heq :
       ∀ tile ∈ (Finset.univ : Finset Tile),
-        (countsOfTiles (standardTarget pair melds)) tile =
+        (countsOfTiles (mentsuTarget pair melds)) tile =
           before.counts tile := by
     apply (Finset.sum_eq_sum_iff_of_le (s := Finset.univ)
-      (f := countsOfTiles (standardTarget pair melds))
+      (f := countsOfTiles (mentsuTarget pair melds))
       (g := before.counts)
       (fun tile _ => hle tile)).mp
     exact hsum.symm
   have hcounts :
-      countsOfTiles (standardTarget pair melds) = before.counts := by
+      countsOfTiles (mentsuTarget pair melds) = before.counts := by
     funext tile
     exact heq tile (Finset.mem_univ tile)
   have hcomplete :
-      Complete .standard
+      Complete .mentsu
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))) := by
-    exact complete_standard_targetHand before
-      (countsOfTiles (standardTarget pair melds)) pair melds
+          (countsOfTiles (mentsuTarget pair melds))) := by
+    exact complete_mentsu_targetHand before
+      (countsOfTiles (mentsuTarget pair melds)) pair melds
       hvalid hmelds
       (targetHand_hasTiles_countsOfTiles before
-        (standardTarget pair melds))
+        (mentsuTarget pair melds))
   simpa [targetHand, hcounts] using hcomplete
 
 set_option maxHeartbeats 1000000 in
-lemma reachesCompletion_standard_of_standardTarget_distance_one
+lemma reachesCompletion_mentsu_of_mentsuTarget_distance_one
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = 1)
+    (hdistance : mentsuTargetDistance before pair melds = 1)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4) :
-    ReachesCompletion Complete .standard before 1 := by
+    ReachesCompletion Complete .mentsu before 1 := by
   obtain ⟨discarded, drawn, hdrawn, hdiscarded, hne, hdistanceNext⟩ :=
-    exists_standardTarget_exchange_of_pos
+    exists_mentsuTarget_exchange_of_pos
       before pair melds hsum (by omega)
   have hsumNext :
       (∑ tile : Tile, (exchangeHand before discarded drawn).counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile := by
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile := by
     have hsumExchange :
         (∑ tile : Tile, (exchangeHand before discarded drawn).counts tile) =
           ∑ tile : Tile, before.counts tile := by
@@ -2892,43 +2892,43 @@ lemma reachesCompletion_standard_of_standardTarget_distance_one
   have hvalidNext :
       ValidCounts
         (targetHand (exchangeHand before discarded drawn)
-          (countsOfTiles (standardTarget pair melds))) := by
+          (countsOfTiles (mentsuTarget pair melds))) := by
     change
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds)))
+          (countsOfTiles (mentsuTarget pair melds)))
     exact hvalid
   have hmeldsNext :
       melds.length + (exchangeHand before discarded drawn).fixedMelds = 4 := by
     change melds.length + before.fixedMelds = 4
     exact hmelds
   have hcomplete :
-      Complete .standard (exchangeHand before discarded drawn) := by
+      Complete .mentsu (exchangeHand before discarded drawn) := by
     have hzeroNext :
-        standardTargetDistance
+        mentsuTargetDistance
             (exchangeHand before discarded drawn) pair melds = 0 := by
       omega
     have hcountsNext :
         (exchangeHand before discarded drawn).counts =
-          countsOfTiles (standardTarget pair melds) :=
-      (standardTargetDistance_eq_zero_iff
+          countsOfTiles (mentsuTarget pair melds) :=
+      (mentsuTargetDistance_eq_zero_iff
         (exchangeHand before discarded drawn) pair melds hsumNext).mp
         hzeroNext
     have htargetComplete :
-        Complete .standard
+        Complete .mentsu
           (targetHand (exchangeHand before discarded drawn)
-            (countsOfTiles (standardTarget pair melds))) :=
-      complete_standard_targetHand
+            (countsOfTiles (mentsuTarget pair melds))) :=
+      complete_mentsu_targetHand
         (exchangeHand before discarded drawn)
-        (countsOfTiles (standardTarget pair melds))
+        (countsOfTiles (mentsuTarget pair melds))
         pair melds hvalidNext hmeldsNext
         (targetHand_hasTiles_countsOfTiles
           (exchangeHand before discarded drawn)
-          (standardTarget pair melds))
+          (mentsuTarget pair melds))
     have hhand :
         exchangeHand before discarded drawn =
           targetHand (exchangeHand before discarded drawn)
-            (countsOfTiles (standardTarget pair melds)) := by
+            (countsOfTiles (mentsuTarget pair melds)) := by
       cases hnext : exchangeHand before discarded drawn with
       | mk counts fixed =>
           simp only [targetHand, hnext]
@@ -2940,39 +2940,39 @@ lemma reachesCompletion_standard_of_standardTarget_distance_one
     rw [hhand]
     exact htargetComplete
   apply ReachesCompletion.step
-  · exact standardTargetExchange_handStep
-      (countsOfTiles (standardTarget pair melds))
+  · exact mentsuTargetExchange_handStep
+      (countsOfTiles (mentsuTarget pair melds))
       before discarded drawn hdrawn hdiscarded hne
   · exact ReachesCompletion.done hcomplete
 
 set_option maxHeartbeats 1000000 in
-lemma reachesCompletion_standard_of_standardTarget_distance
+lemma reachesCompletion_mentsu_of_mentsuTarget_distance
     (distance : Nat)
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = distance)
+    (hdistance : mentsuTargetDistance before pair melds = distance)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4) :
-    ReachesCompletion Complete .standard before distance := by
+    ReachesCompletion Complete .mentsu before distance := by
   induction distance generalizing before with
   | zero =>
-      have hcomplete : Complete .standard before := by
-        exact complete_standard_of_standardTarget_distance_zero
+      have hcomplete : Complete .mentsu before := by
+        exact complete_mentsu_of_mentsuTarget_distance_zero
           before pair melds hdistance hsum hvalid hmelds
       exact ReachesCompletion.done hcomplete
   | succ distance ih =>
       obtain ⟨discarded, drawn, hdrawn, hdiscarded, hne, hdistanceNext⟩ :=
-        exists_standardTarget_exchange_of_pos
+        exists_mentsuTarget_exchange_of_pos
           before pair melds hsum (by omega)
       have hsumNext :
           (∑ tile : Tile,
             (exchangeHand before discarded drawn).counts tile) =
-            ∑ tile : Tile, (standardTarget pair melds).count tile := by
+            ∑ tile : Tile, (mentsuTarget pair melds).count tile := by
         have hsumExchange :
             (∑ tile : Tile,
               (exchangeHand before discarded drawn).counts tile) =
@@ -2986,123 +2986,123 @@ lemma reachesCompletion_standard_of_standardTarget_distance
       have hvalidNext :
           ValidCounts
             (targetHand (exchangeHand before discarded drawn)
-              (countsOfTiles (standardTarget pair melds))) := by
+              (countsOfTiles (mentsuTarget pair melds))) := by
         change
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget pair melds)))
+              (countsOfTiles (mentsuTarget pair melds)))
         exact hvalid
       have hmeldsNext :
           melds.length + (exchangeHand before discarded drawn).fixedMelds = 4 := by
         change melds.length + before.fixedMelds = 4
         exact hmelds
       have hdistanceNext' :
-          standardTargetDistance
+          mentsuTargetDistance
               (exchangeHand before discarded drawn) pair melds = distance := by
         omega
       have hrest :=
         ih (exchangeHand before discarded drawn)
           hdistanceNext' hsumNext hvalidNext hmeldsNext
       apply ReachesCompletion.step
-      · exact standardTargetExchange_handStep
-          (countsOfTiles (standardTarget pair melds))
+      · exact mentsuTargetExchange_handStep
+          (countsOfTiles (mentsuTarget pair melds))
           before discarded drawn hdrawn hdiscarded hne
       · exact hrest
 
-lemma isShapeShanten_standard_of_standardTarget_distance
+lemma isShapeShanten_mentsu_of_mentsuTarget_distance
     (distance : Nat)
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = distance)
+    (hdistance : mentsuTargetDistance before pair melds = distance)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4)
     (hminimal :
       ∀ smaller : Nat, smaller < distance →
-        ¬ ReachesCompletion Complete .standard before smaller) :
-    IsShapeShanten before .standard ((distance : Int) - 1) := by
+        ¬ ReachesCompletion Complete .mentsu before smaller) :
+    IsShapeShanten before .mentsu ((distance : Int) - 1) := by
   have hreaches :
-      ReachesCompletion Complete .standard before distance :=
-    reachesCompletion_standard_of_standardTarget_distance
+      ReachesCompletion Complete .mentsu before distance :=
+    reachesCompletion_mentsu_of_mentsuTarget_distance
       distance before pair melds hdistance hsum hvalid hmelds
   refine ⟨trivial, distance, ?_, hreaches, hminimal⟩
   omega
 
-lemma isShapeShanten_standard_of_minimal_standardTargetDistance
+lemma isShapeShanten_mentsu_of_minimal_mentsuTargetDistance
     (distance : Nat)
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = distance)
+    (hdistance : mentsuTargetDistance before pair melds = distance)
     (hsum :
       (∑ tile : Tile, before.counts tile) =
-        ∑ tile : Tile, (standardTarget pair melds).count tile)
+        ∑ tile : Tile, (mentsuTarget pair melds).count tile)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4)
     (hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + before.fixedMelds = 4 →
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance before pair melds ≤
-            standardTargetDistance before otherPair otherMelds) :
-    IsShapeShanten before .standard ((distance : Int) - 1) := by
-  apply isShapeShanten_standard_of_standardTarget_distance
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance before pair melds ≤
+            mentsuTargetDistance before otherPair otherMelds) :
+    IsShapeShanten before .mentsu ((distance : Int) - 1) := by
+  apply isShapeShanten_mentsu_of_mentsuTarget_distance
     distance before pair melds hdistance hsum hvalid hmelds
-  exact no_shorter_standard_completion_of_minimal_standardTargetDistance
+  exact no_shorter_mentsu_completion_of_minimal_mentsuTargetDistance
     before pair melds distance hdistance hminimalTarget
 
-lemma isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+lemma isShapeShanten_mentsu_of_minimal_mentsuTargetDistance_one_more
     (distance : Nat)
     (before : Hand) (pair : Tile) (melds : List Meld)
-    (hdistance : standardTargetDistance before pair melds = distance)
+    (hdistance : mentsuTargetDistance before pair melds = distance)
     (hsum :
       (∑ tile : Tile,
-        countsOfTiles (standardTarget pair melds) tile) =
+        countsOfTiles (mentsuTarget pair melds) tile) =
         (∑ tile : Tile, before.counts tile) + 1)
     (hbeforeValid : ValidCounts before)
     (hvalid :
       ValidCounts
         (targetHand before
-          (countsOfTiles (standardTarget pair melds))))
+          (countsOfTiles (mentsuTarget pair melds))))
     (hmelds : melds.length + before.fixedMelds = 4)
     (hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + before.fixedMelds = 4 →
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance before pair melds ≤
-            standardTargetDistance before otherPair otherMelds) :
-    IsShapeShanten before .standard ((distance : Int) - 1) := by
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance before pair melds ≤
+            mentsuTargetDistance before otherPair otherMelds) :
+    IsShapeShanten before .mentsu ((distance : Int) - 1) := by
   obtain ⟨reachedDistance, htargetDistance, hreach⟩ :=
-    reachesCompletion_standard_of_one_more_target_tile
-      before (countsOfTiles (standardTarget pair melds))
+    reachesCompletion_mentsu_of_one_more_target_tile
+      before (countsOfTiles (mentsuTarget pair melds))
       pair melds hsum hbeforeValid hvalid hmelds
       (targetHand_hasTiles_countsOfTiles before
-        (standardTarget pair melds))
+        (mentsuTarget pair melds))
   have hreachDistance :
       reachedDistance = distance := by
     calc
       reachedDistance =
           countDeficit before.counts
-            (countsOfTiles (standardTarget pair melds)) :=
+            (countsOfTiles (mentsuTarget pair melds)) :=
         htargetDistance
-      _ = standardTargetDistance before pair melds :=
-        (standardTargetDistance_eq_countDeficit before pair melds).symm
+      _ = mentsuTargetDistance before pair melds :=
+        (mentsuTargetDistance_eq_countDeficit before pair melds).symm
       _ = distance := hdistance
   have hreaches :
-      ReachesCompletion Complete .standard before distance := by
+      ReachesCompletion Complete .mentsu before distance := by
     rw [← hreachDistance]
     exact hreach
   have hminimal :=
-    no_shorter_standard_completion_of_minimal_standardTargetDistance
+    no_shorter_mentsu_completion_of_minimal_mentsuTargetDistance
       before pair melds distance hdistance hminimalTarget
   refine ⟨trivial, distance, ?_, hreaches, hminimal⟩
   omega
@@ -3115,30 +3115,30 @@ private lemma nat_find_le_of_mem
   Nat.find_min' hexists hvalue
 
 set_option maxHeartbeats 1000000 in
-lemma exists_isShapeShanten_standard_of_valid_standardTarget
+lemma exists_isShapeShanten_mentsu_of_valid_mentsuTarget
     (before : Hand)
     (hcandidate :
       ∃ pair melds,
         melds.length + before.fixedMelds = 4 ∧
           (∑ tile : Tile, before.counts tile) =
-            ∑ tile : Tile, (standardTarget pair melds).count tile ∧
+            ∑ tile : Tile, (mentsuTarget pair melds).count tile ∧
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget pair melds)))) :
-    ∃ value : Int, IsShapeShanten before .standard value := by
+              (countsOfTiles (mentsuTarget pair melds)))) :
+    ∃ value : Int, IsShapeShanten before .mentsu value := by
   classical
   let candidateDistance : Nat → Prop := fun distance =>
     ∃ pair melds,
       melds.length + before.fixedMelds = 4 ∧
         (∑ tile : Tile, before.counts tile) =
-          ∑ tile : Tile, (standardTarget pair melds).count tile ∧
+          ∑ tile : Tile, (mentsuTarget pair melds).count tile ∧
         ValidCounts
           (targetHand before
-            (countsOfTiles (standardTarget pair melds))) ∧
-        standardTargetDistance before pair melds = distance
+            (countsOfTiles (mentsuTarget pair melds))) ∧
+        mentsuTargetDistance before pair melds = distance
   have hexists : ∃ distance, candidateDistance distance := by
     obtain ⟨pair, melds, hmelds, hsum, hvalid⟩ := hcandidate
-    exact ⟨standardTargetDistance before pair melds,
+    exact ⟨mentsuTargetDistance before pair melds,
       pair, melds, hmelds, hsum, hvalid, rfl⟩
   let distance := Nat.find hexists
   obtain ⟨pair, melds, hmelds, hsum, hvalid, hdistance⟩ :=
@@ -3148,69 +3148,69 @@ lemma exists_isShapeShanten_standard_of_valid_standardTarget
         otherMelds.length + before.fixedMelds = 4 →
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance before pair melds ≤
-            standardTargetDistance before otherPair otherMelds := by
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance before pair melds ≤
+            mentsuTargetDistance before otherPair otherMelds := by
     intro otherPair otherMelds hotherMelds hotherValid
     have hlength : melds.length = otherMelds.length := by omega
     have hsumOther :
         (∑ tile : Tile, before.counts tile) =
-          ∑ tile : Tile, (standardTarget otherPair otherMelds).count tile := by
+          ∑ tile : Tile, (mentsuTarget otherPair otherMelds).count tile := by
       calc
         (∑ tile : Tile, before.counts tile) =
-            ∑ tile : Tile, (standardTarget pair melds).count tile := hsum
-        _ = (standardTarget pair melds).card := by
+            ∑ tile : Tile, (mentsuTarget pair melds).count tile := hsum
+        _ = (mentsuTarget pair melds).card := by
           simpa [countsOfTiles] using
-            (countsOfTiles_sum_eq_card (standardTarget pair melds))
-        _ = (standardTarget otherPair otherMelds).card := by
-          simp [standardTarget, Multiset.card_add, pairTiles_card,
+            (countsOfTiles_sum_eq_card (mentsuTarget pair melds))
+        _ = (mentsuTarget otherPair otherMelds).card := by
+          simp [mentsuTarget, Multiset.card_add, pairTiles_card,
             meldsTiles_card, hlength]
-        _ = ∑ tile : Tile, (standardTarget otherPair otherMelds).count tile := by
+        _ = ∑ tile : Tile, (mentsuTarget otherPair otherMelds).count tile := by
           symm
           simpa [countsOfTiles] using
-            (countsOfTiles_sum_eq_card (standardTarget otherPair otherMelds))
+            (countsOfTiles_sum_eq_card (mentsuTarget otherPair otherMelds))
     have hotherCandidate :
-        candidateDistance (standardTargetDistance before otherPair otherMelds) :=
+        candidateDistance (mentsuTargetDistance before otherPair otherMelds) :=
       ⟨otherPair, otherMelds, hotherMelds, hsumOther, hotherValid, rfl⟩
     calc
-      standardTargetDistance before pair melds = distance := hdistance
-      _ ≤ standardTargetDistance before otherPair otherMelds := by
+      mentsuTargetDistance before pair melds = distance := hdistance
+      _ ≤ mentsuTargetDistance before otherPair otherMelds := by
         change Nat.find hexists ≤
-          standardTargetDistance before otherPair otherMelds
+          mentsuTargetDistance before otherPair otherMelds
         exact nat_find_le_of_mem candidateDistance hexists hotherCandidate
   have hshape :
-      IsShapeShanten before .standard ((distance : Int) - 1) :=
-    isShapeShanten_standard_of_minimal_standardTargetDistance
+      IsShapeShanten before .mentsu ((distance : Int) - 1) :=
+    isShapeShanten_mentsu_of_minimal_mentsuTargetDistance
       distance before pair melds hdistance hsum hvalid hmelds hminimalTarget
   exact ⟨(distance : Int) - 1, hshape⟩
 
 set_option maxHeartbeats 1000000 in
-lemma exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+lemma exists_isShapeShanten_mentsu_of_valid_mentsuTarget_one_more
     (before : Hand) (hbeforeValid : ValidCounts before)
     (hcandidate :
       ∃ pair melds,
         melds.length + before.fixedMelds = 4 ∧
           (∑ tile : Tile,
-            countsOfTiles (standardTarget pair melds) tile) =
+            countsOfTiles (mentsuTarget pair melds) tile) =
             (∑ tile : Tile, before.counts tile) + 1 ∧
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget pair melds)))) :
-    ∃ value : Int, IsShapeShanten before .standard value := by
+              (countsOfTiles (mentsuTarget pair melds)))) :
+    ∃ value : Int, IsShapeShanten before .mentsu value := by
   classical
   let candidateDistance : Nat → Prop := fun distance =>
     ∃ pair melds,
       melds.length + before.fixedMelds = 4 ∧
         (∑ tile : Tile,
-          countsOfTiles (standardTarget pair melds) tile) =
+          countsOfTiles (mentsuTarget pair melds) tile) =
           (∑ tile : Tile, before.counts tile) + 1 ∧
         ValidCounts
           (targetHand before
-            (countsOfTiles (standardTarget pair melds))) ∧
-        standardTargetDistance before pair melds = distance
+            (countsOfTiles (mentsuTarget pair melds))) ∧
+        mentsuTargetDistance before pair melds = distance
   have hexists : ∃ distance, candidateDistance distance := by
     obtain ⟨pair, melds, hmelds, hsum, hvalid⟩ := hcandidate
-    exact ⟨standardTargetDistance before pair melds,
+    exact ⟨mentsuTargetDistance before pair melds,
       pair, melds, hmelds, hsum, hvalid, rfl⟩
   let distance := Nat.find hexists
   obtain ⟨pair, melds, hmelds, hsum, hvalid, hdistance⟩ :=
@@ -3220,111 +3220,111 @@ lemma exists_isShapeShanten_standard_of_valid_standardTarget_one_more
         otherMelds.length + before.fixedMelds = 4 →
           ValidCounts
             (targetHand before
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance before pair melds ≤
-            standardTargetDistance before otherPair otherMelds := by
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance before pair melds ≤
+            mentsuTargetDistance before otherPair otherMelds := by
     intro otherPair otherMelds hotherMelds hotherValid
     have hlength : melds.length = otherMelds.length := by omega
     have hsumOther :
         (∑ tile : Tile,
-          countsOfTiles (standardTarget otherPair otherMelds) tile) =
+          countsOfTiles (mentsuTarget otherPair otherMelds) tile) =
           (∑ tile : Tile, before.counts tile) + 1 := by
       calc
         (∑ tile : Tile,
-            countsOfTiles (standardTarget otherPair otherMelds) tile) =
-            (standardTarget otherPair otherMelds).card := by
+            countsOfTiles (mentsuTarget otherPair otherMelds) tile) =
+            (mentsuTarget otherPair otherMelds).card := by
           simpa [countsOfTiles] using
-            (countsOfTiles_sum_eq_card (standardTarget otherPair otherMelds))
-        _ = (standardTarget pair melds).card := by
-          simp [standardTarget, Multiset.card_add, pairTiles_card,
+            (countsOfTiles_sum_eq_card (mentsuTarget otherPair otherMelds))
+        _ = (mentsuTarget pair melds).card := by
+          simp [mentsuTarget, Multiset.card_add, pairTiles_card,
             meldsTiles_card, hlength]
         _ = ∑ tile : Tile,
-            countsOfTiles (standardTarget pair melds) tile := by
+            countsOfTiles (mentsuTarget pair melds) tile := by
           symm
           simpa [countsOfTiles] using
-            (countsOfTiles_sum_eq_card (standardTarget pair melds))
+            (countsOfTiles_sum_eq_card (mentsuTarget pair melds))
         _ = (∑ tile : Tile, before.counts tile) + 1 := hsum
     have hotherCandidate :
-        candidateDistance (standardTargetDistance before otherPair otherMelds) :=
+        candidateDistance (mentsuTargetDistance before otherPair otherMelds) :=
       ⟨otherPair, otherMelds, hotherMelds, hsumOther, hotherValid, rfl⟩
     calc
-      standardTargetDistance before pair melds = distance := hdistance
-      _ ≤ standardTargetDistance before otherPair otherMelds := by
+      mentsuTargetDistance before pair melds = distance := hdistance
+      _ ≤ mentsuTargetDistance before otherPair otherMelds := by
         change Nat.find hexists ≤
-          standardTargetDistance before otherPair otherMelds
+          mentsuTargetDistance before otherPair otherMelds
         exact nat_find_le_of_mem candidateDistance hexists hotherCandidate
   have hshape :
-      IsShapeShanten before .standard ((distance : Int) - 1) :=
-    isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+      IsShapeShanten before .mentsu ((distance : Int) - 1) :=
+    isShapeShanten_mentsu_of_minimal_mentsuTargetDistance_one_more
       distance before pair melds hdistance hsum hbeforeValid
       hvalid hmelds hminimalTarget
   exact ⟨(distance : Int) - 1, hshape⟩
 
-lemma sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+lemma sum_countsOfTiles_mentsuTarget_of_thirteen_tile_count
     (hand : Hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
     (pair : Tile) (melds : List Meld)
     (hmelds : melds.length + hand.fixedMelds = 4) :
-    (∑ tile : Tile, countsOfTiles (standardTarget pair melds) tile) =
+    (∑ tile : Tile, countsOfTiles (mentsuTarget pair melds) tile) =
       (∑ tile : Tile, hand.counts tile) + 1 := by
   calc
-    _ = (standardTarget pair melds).card := by
-      exact countsOfTiles_sum_eq_card (standardTarget pair melds)
+    _ = (mentsuTarget pair melds).card := by
+      exact countsOfTiles_sum_eq_card (mentsuTarget pair melds)
     _ = 2 + 3 * melds.length := by
-      simp [standardTarget, Multiset.card_add, pairTiles_card,
+      simp [mentsuTarget, Multiset.card_add, pairTiles_card,
         meldsTiles_card]
     _ = tileCount hand + 1 := by omega
     _ = (∑ tile : Tile, hand.counts tile) + 1 := by rfl
 
 set_option maxHeartbeats 1000000 in
-lemma exists_standardTarget_reaching_isShapeShanten_distance
+lemma exists_mentsuTarget_reaching_isShapeShanten_distance
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
-    (value : Int) (hshape : IsShapeShanten hand .standard value) :
+    (value : Int) (hshape : IsShapeShanten hand .mentsu value) :
     ∃ distance : Nat, ∃ pair melds,
       (distance : Int) = value + 1 ∧
       melds.length + hand.fixedMelds = 4 ∧
       ValidCounts
         (targetHand hand
-          (countsOfTiles (standardTarget pair melds))) ∧
-      standardTargetDistance hand pair melds = distance ∧
-      ReachesCompletion Complete .standard hand distance := by
+          (countsOfTiles (mentsuTarget pair melds))) ∧
+      mentsuTargetDistance hand pair melds = distance ∧
+      ReachesCompletion Complete .mentsu hand distance := by
   rcases hshape with ⟨_, distance, hvalue, hreach, hminimal⟩
   obtain ⟨pair, melds, hmelds, hvalid, hdistanceLE⟩ :=
-    exists_standardTarget_distance_le_of_reachesCompletion
+    exists_mentsuTarget_distance_le_of_reachesCompletion
       hand distance hreach
   have hsum :=
-    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+    sum_countsOfTiles_mentsuTarget_of_thirteen_tile_count
       hand hstanding pair melds hmelds
   obtain ⟨targetDistance, htargetDistance, htargetReach⟩ :=
-    reachesCompletion_standard_of_one_more_target_tile
-      hand (countsOfTiles (standardTarget pair melds)) pair melds
+    reachesCompletion_mentsu_of_one_more_target_tile
+      hand (countsOfTiles (mentsuTarget pair melds)) pair melds
       hsum hbeforeValid hvalid hmelds
       (targetHand_hasTiles_countsOfTiles hand
-        (standardTarget pair melds))
+        (mentsuTarget pair melds))
   have hreachDistance :
-      targetDistance = standardTargetDistance hand pair melds := by
+      targetDistance = mentsuTargetDistance hand pair melds := by
     calc
       targetDistance =
           countDeficit hand.counts
-            (countsOfTiles (standardTarget pair melds)) :=
+            (countsOfTiles (mentsuTarget pair melds)) :=
         htargetDistance
-      _ = standardTargetDistance hand pair melds :=
-        (standardTargetDistance_eq_countDeficit hand pair melds).symm
+      _ = mentsuTargetDistance hand pair melds :=
+        (mentsuTargetDistance_eq_countDeficit hand pair melds).symm
   have htargetLE : targetDistance ≤ distance := by
     calc
-      targetDistance = standardTargetDistance hand pair melds :=
+      targetDistance = mentsuTargetDistance hand pair melds :=
         hreachDistance
       _ ≤ distance := hdistanceLE
   have hdistanceLEtarget : distance ≤ targetDistance := by
     by_contra hnot
     have hshorter : targetDistance < distance := by omega
     exact hminimal targetDistance hshorter htargetReach
-  have htargetDistanceEq : standardTargetDistance hand pair melds = distance := by
+  have htargetDistanceEq : mentsuTargetDistance hand pair melds = distance := by
     omega
   have htargetDistanceEqNat : targetDistance = distance := by
     calc
-      targetDistance = standardTargetDistance hand pair melds :=
+      targetDistance = mentsuTargetDistance hand pair melds :=
         hreachDistance
       _ = distance := htargetDistanceEq
   refine ⟨distance, pair, melds, hvalue, hmelds, hvalid,
@@ -3333,28 +3333,28 @@ lemma exists_standardTarget_reaching_isShapeShanten_distance
   exact htargetReach
 
 set_option maxHeartbeats 1000000 in
-lemma exists_minimal_standardTarget_of_isShapeShanten_standard
+lemma exists_minimal_mentsuTarget_of_isShapeShanten_mentsu
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
-    (value : Int) (hshape : IsShapeShanten hand .standard value) :
+    (value : Int) (hshape : IsShapeShanten hand .mentsu value) :
     ∃ distance : Nat, ∃ pair melds,
       (distance : Int) = value + 1 ∧
       melds.length + hand.fixedMelds = 4 ∧
       ValidCounts
         (targetHand hand
-          (countsOfTiles (standardTarget pair melds))) ∧
-      standardTargetDistance hand pair melds = distance ∧
-      ReachesCompletion Complete .standard hand distance ∧
+          (countsOfTiles (mentsuTarget pair melds))) ∧
+      mentsuTargetDistance hand pair melds = distance ∧
+      ReachesCompletion Complete .mentsu hand distance ∧
       ∀ otherPair otherMelds,
         otherMelds.length + hand.fixedMelds = 4 →
         ValidCounts
           (targetHand hand
-            (countsOfTiles (standardTarget otherPair otherMelds))) →
-        standardTargetDistance hand pair melds ≤
-          standardTargetDistance hand otherPair otherMelds := by
+            (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+        mentsuTargetDistance hand pair melds ≤
+          mentsuTargetDistance hand otherPair otherMelds := by
   obtain ⟨distance, pair, melds, hvalue, hmelds, hvalid,
       hdistance, hreach⟩ :=
-    exists_standardTarget_reaching_isShapeShanten_distance
+    exists_mentsuTarget_reaching_isShapeShanten_distance
       hand hbeforeValid hstanding value hshape
   rcases hshape with ⟨_, actualDistance, hactualValue, _, hminimal⟩
   have hdistanceEq : distance = actualDistance := by omega
@@ -3362,77 +3362,77 @@ lemma exists_minimal_standardTarget_of_isShapeShanten_standard
     hdistance, hreach, ?_⟩
   intro otherPair otherMelds hotherMelds hotherValid
   have hsumOther :=
-    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+    sum_countsOfTiles_mentsuTarget_of_thirteen_tile_count
       hand hstanding otherPair otherMelds hotherMelds
   obtain ⟨otherDistance, hotherDistance, hotherReach⟩ :=
-    reachesCompletion_standard_of_one_more_target_tile
-      hand (countsOfTiles (standardTarget otherPair otherMelds))
+    reachesCompletion_mentsu_of_one_more_target_tile
+      hand (countsOfTiles (mentsuTarget otherPair otherMelds))
       otherPair otherMelds hsumOther hbeforeValid hotherValid
       hotherMelds
       (targetHand_hasTiles_countsOfTiles hand
-        (standardTarget otherPair otherMelds))
+        (mentsuTarget otherPair otherMelds))
   have hotherDistanceEq :
       otherDistance =
-        standardTargetDistance hand otherPair otherMelds := by
+        mentsuTargetDistance hand otherPair otherMelds := by
     calc
       otherDistance =
           countDeficit hand.counts
-            (countsOfTiles (standardTarget otherPair otherMelds)) :=
+            (countsOfTiles (mentsuTarget otherPair otherMelds)) :=
         hotherDistance
-      _ = standardTargetDistance hand otherPair otherMelds :=
-        (standardTargetDistance_eq_countDeficit hand otherPair otherMelds).symm
+      _ = mentsuTargetDistance hand otherPair otherMelds :=
+        (mentsuTargetDistance_eq_countDeficit hand otherPair otherMelds).symm
   by_contra hnotMinimal
   have hshorter : otherDistance < actualDistance := by
     omega
   exact hminimal otherDistance hshorter hotherReach
 
-lemma isShapeShanten_standard_iff_exists_minimal_standardTarget
+lemma isShapeShanten_mentsu_iff_exists_minimal_mentsuTarget
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
     (value : Int) :
-    IsShapeShanten hand .standard value ↔
+    IsShapeShanten hand .mentsu value ↔
       ∃ distance : Nat, ∃ pair melds,
         (distance : Int) = value + 1 ∧
         melds.length + hand.fixedMelds = 4 ∧
         (∑ tile : Tile,
-          countsOfTiles (standardTarget pair melds) tile) =
+          countsOfTiles (mentsuTarget pair melds) tile) =
           (∑ tile : Tile, hand.counts tile) + 1 ∧
         ValidCounts
           (targetHand hand
-            (countsOfTiles (standardTarget pair melds))) ∧
-        standardTargetDistance hand pair melds = distance ∧
+            (countsOfTiles (mentsuTarget pair melds))) ∧
+        mentsuTargetDistance hand pair melds = distance ∧
         ∀ otherPair otherMelds,
           otherMelds.length + hand.fixedMelds = 4 →
           ValidCounts
             (targetHand hand
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance hand pair melds ≤
-            standardTargetDistance hand otherPair otherMelds := by
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance hand pair melds ≤
+            mentsuTargetDistance hand otherPair otherMelds := by
   constructor
   · intro hshape
     obtain ⟨distance, pair, melds, hvalue, hmelds, hvalid,
         hdistance, _, hminimal⟩ :=
-      exists_minimal_standardTarget_of_isShapeShanten_standard
+      exists_minimal_mentsuTarget_of_isShapeShanten_mentsu
         hand hbeforeValid hstanding value hshape
     have hsum :=
-      sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+      sum_countsOfTiles_mentsuTarget_of_thirteen_tile_count
         hand hstanding pair melds hmelds
     exact ⟨distance, pair, melds, hvalue, hmelds, hsum, hvalid,
       hdistance, hminimal⟩
   · rintro ⟨distance, pair, melds, hvalue, hmelds, hsum,
       hvalid, hdistance, hminimal⟩
     have hshape :
-        IsShapeShanten hand .standard ((distance : Int) - 1) :=
-      isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+        IsShapeShanten hand .mentsu ((distance : Int) - 1) :=
+      isShapeShanten_mentsu_of_minimal_mentsuTargetDistance_one_more
         distance hand pair melds hdistance hsum hbeforeValid
         hvalid hmelds hminimal
     have hvalueEq : (distance : Int) - 1 = value := by omega
     exact hvalueEq ▸ hshape
 
-private def canonicalStandardPair : Tile :=
+private def canonicalMentsuPair : Tile :=
   .honor ⟨0, by omega⟩
 
-private def canonicalStandardMelds : Nat → List Meld
+private def canonicalMentsuMelds : Nat → List Meld
   | 0 =>
       [ .sequence .man ⟨0, by omega⟩
       , .sequence .pin ⟨0, by omega⟩
@@ -3448,20 +3448,20 @@ private def canonicalStandardMelds : Nat → List Meld
   | 3 => [ .sequence .man ⟨0, by omega⟩ ]
   | _ => []
 
-private lemma canonicalStandardMelds_length
+private lemma canonicalMentsuMelds_length
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4) :
-    (canonicalStandardMelds fixedMelds).length + fixedMelds = 4 := by
+    (canonicalMentsuMelds fixedMelds).length + fixedMelds = 4 := by
   have hcases :
       fixedMelds = 0 ∨ fixedMelds = 1 ∨ fixedMelds = 2 ∨
         fixedMelds = 3 ∨ fixedMelds = 4 := by omega
   rcases hcases with h | h | h | h | h
-  all_goals subst fixedMelds <;> simp [canonicalStandardMelds]
+  all_goals subst fixedMelds <;> simp [canonicalMentsuMelds]
 
-private lemma canonicalStandardTarget_validCounts
+private lemma canonicalMentsuTarget_validCounts
     (fixedMelds : Nat) (hfixed : fixedMelds ≤ 4) :
     ∀ tile,
-      (standardTarget canonicalStandardPair
-        (canonicalStandardMelds fixedMelds)).count tile ≤ 4 := by
+      (mentsuTarget canonicalMentsuPair
+        (canonicalMentsuMelds fixedMelds)).count tile ≤ 4 := by
   intro tile
   have hcases :
       fixedMelds = 0 ∨ fixedMelds = 1 ∨ fixedMelds = 2 ∨
@@ -3472,86 +3472,86 @@ private lemma canonicalStandardTarget_validCounts
     cases tile with
     | suited suit rank =>
         cases suit <;> fin_cases rank <;>
-          simp [canonicalStandardPair, canonicalStandardMelds,
-            standardTarget, pairTiles, meldsTiles, meldTiles]
+          simp [canonicalMentsuPair, canonicalMentsuMelds,
+            mentsuTarget, pairTiles, meldsTiles, meldTiles]
     | honor rank =>
         fin_cases rank <;>
-          simp [canonicalStandardPair, canonicalStandardMelds,
-            standardTarget, pairTiles, meldsTiles, meldTiles]
+          simp [canonicalMentsuPair, canonicalMentsuMelds,
+            mentsuTarget, pairTiles, meldsTiles, meldTiles]
 
 set_option maxHeartbeats 1000000 in
-lemma exists_standardShanten_as_min_validTargetDistance
+lemma exists_mentsuShanten_as_min_validTargetDistance
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
     ∃ distance,
-      distance ∈ validStandardTargetDistances hand ∧
+      distance ∈ validMentsuTargetDistances hand ∧
       (∀ otherDistance,
-        otherDistance ∈ validStandardTargetDistances hand →
+        otherDistance ∈ validMentsuTargetDistances hand →
           distance ≤ otherDistance) ∧
-      IsShapeShanten hand .standard ((distance : Int) - 1) := by
+      IsShapeShanten hand .mentsu ((distance : Int) - 1) := by
   have hfixed : hand.fixedMelds ≤ 4 := by omega
   have hmelds :=
-    canonicalStandardMelds_length hand.fixedMelds hfixed
+    canonicalMentsuMelds_length hand.fixedMelds hfixed
   have hvalid :
       ValidCounts
         (targetHand hand
           (countsOfTiles
-            (standardTarget canonicalStandardPair
-              (canonicalStandardMelds hand.fixedMelds)))) := by
+            (mentsuTarget canonicalMentsuPair
+              (canonicalMentsuMelds hand.fixedMelds)))) := by
     intro tile
     change
-      (standardTarget canonicalStandardPair
-        (canonicalStandardMelds hand.fixedMelds)).count tile ≤ 4
-    exact canonicalStandardTarget_validCounts
+      (mentsuTarget canonicalMentsuPair
+        (canonicalMentsuMelds hand.fixedMelds)).count tile ≤ 4
+    exact canonicalMentsuTarget_validCounts
       hand.fixedMelds hfixed tile
   obtain ⟨distance, hdistanceMem, hminimalDistance⟩ :=
-    exists_min_validStandardTargetDistance hand hfixed
-      ⟨canonicalStandardPair, canonicalStandardMelds hand.fixedMelds,
+    exists_min_validMentsuTargetDistance hand hfixed
+      ⟨canonicalMentsuPair, canonicalMentsuMelds hand.fixedMelds,
         hmelds, hvalid⟩
   obtain ⟨pair, melds, htargetMelds, htargetValid, htargetDistance⟩ :=
-    (mem_validStandardTargetDistances_iff
+    (mem_validMentsuTargetDistances_iff
       hand hfixed distance).mp hdistanceMem
   have hsum :=
-    sum_countsOfTiles_standardTarget_of_thirteen_tile_count
+    sum_countsOfTiles_mentsuTarget_of_thirteen_tile_count
       hand hstanding pair melds htargetMelds
   have hminimalTarget :
       ∀ otherPair otherMelds,
         otherMelds.length + hand.fixedMelds = 4 →
           ValidCounts
             (targetHand hand
-              (countsOfTiles (standardTarget otherPair otherMelds))) →
-          standardTargetDistance hand pair melds ≤
-            standardTargetDistance hand otherPair otherMelds := by
+              (countsOfTiles (mentsuTarget otherPair otherMelds))) →
+          mentsuTargetDistance hand pair melds ≤
+            mentsuTargetDistance hand otherPair otherMelds := by
     intro otherPair otherMelds hotherMelds hotherValid
     have hotherDistanceMem :
-        standardTargetDistance hand otherPair otherMelds ∈
-          validStandardTargetDistances hand :=
-      (mem_validStandardTargetDistances_iff
+        mentsuTargetDistance hand otherPair otherMelds ∈
+          validMentsuTargetDistances hand :=
+      (mem_validMentsuTargetDistances_iff
         hand hfixed
-        (standardTargetDistance hand otherPair otherMelds)).mpr
+        (mentsuTargetDistance hand otherPair otherMelds)).mpr
         ⟨otherPair, otherMelds, hotherMelds, hotherValid, rfl⟩
     calc
-      standardTargetDistance hand pair melds = distance :=
+      mentsuTargetDistance hand pair melds = distance :=
         htargetDistance
-      _ ≤ standardTargetDistance hand otherPair otherMelds :=
+      _ ≤ mentsuTargetDistance hand otherPair otherMelds :=
         hminimalDistance _ hotherDistanceMem
   have hshape :
-      IsShapeShanten hand .standard ((distance : Int) - 1) :=
-    isShapeShanten_standard_of_minimal_standardTargetDistance_one_more
+      IsShapeShanten hand .mentsu ((distance : Int) - 1) :=
+    isShapeShanten_mentsu_of_minimal_mentsuTargetDistance_one_more
       distance hand pair melds htargetDistance hsum hbeforeValid
       htargetValid htargetMelds hminimalTarget
   exact ⟨distance, hdistanceMem, hminimalDistance, hshape⟩
 
-lemma standardTargetMinimumSearch_eq_some_iff
+lemma mentsuTargetMinimumSearch_eq_some_iff
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13)
     (value : Int) :
-    standardTargetMinimumSearch hand = some value ↔
-      IsShapeShanten hand .standard value := by
+    mentsuTargetMinimumSearch hand = some value ↔
+      IsShapeShanten hand .mentsu value := by
   obtain ⟨distance, hmem, hminimal, hshape⟩ :=
-    exists_standardShanten_as_min_validTargetDistance
+    exists_mentsuShanten_as_min_validTargetDistance
       hand hbeforeValid hstanding
-  let distances := validStandardTargetDistances hand
+  let distances := validMentsuTargetDistances hand
   have hnonempty : distances.Nonempty := ⟨distance, hmem⟩
   have hdistance :
       distances.min' hnonempty = distance := by
@@ -3559,9 +3559,9 @@ lemma standardTargetMinimumSearch_eq_some_iff
     · exact Finset.min'_le distances distance hmem
     · exact hminimal _ (Finset.min'_mem distances hnonempty)
   have hsearch :
-      standardTargetMinimumSearch hand =
+      mentsuTargetMinimumSearch hand =
         some ((distance : Int) - 1) := by
-    simp [standardTargetMinimumSearch, distances, hnonempty, hdistance]
+    simp [mentsuTargetMinimumSearch, distances, hnonempty, hdistance]
   constructor
   · intro hresult
     have hvalues :
@@ -3576,167 +3576,167 @@ lemma standardTargetMinimumSearch_eq_some_iff
       isShapeShanten_unique hshape hvalue
     rw [hsearch, heq]
 
-lemma exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+lemma exists_isShapeShanten_mentsu_of_valid_thirteen_tile_count
     (hand : Hand) (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
-    ∃ value : Int, IsShapeShanten hand .standard value := by
+    ∃ value : Int, IsShapeShanten hand .mentsu value := by
   obtain ⟨distance, _, _, hshape⟩ :=
-    exists_standardShanten_as_min_validTargetDistance
+    exists_mentsuShanten_as_min_validTargetDistance
       hand hbeforeValid hstanding
   exact ⟨(distance : Int) - 1, hshape⟩
 
-lemma exists_isShapeShanten_standard_of_thirteenTileHand
+lemma exists_isShapeShanten_mentsu_of_thirteenTileHand
     (hand : Hand) (hthirteen : IsThirteenTileHand hand) :
-    ∃ value : Int, IsShapeShanten hand .standard value := by
+    ∃ value : Int, IsShapeShanten hand .mentsu value := by
   rcases hthirteen with ⟨hfixed, hcount, hvalid⟩
-  apply exists_isShapeShanten_standard_of_valid_thirteen_tile_count
+  apply exists_isShapeShanten_mentsu_of_valid_thirteen_tile_count
     hand hvalid
   rw [hfixed, hcount]
 
 lemma exists_isOverallShanten_of_thirteenTileHand
     (hand : Hand) (hthirteen : IsThirteenTileHand hand) :
     ∃ value : Int, IsOverallShanten hand value := by
-  obtain ⟨standardValue, hstandard⟩ :=
-    exists_isShapeShanten_standard_of_thirteenTileHand hand hthirteen
-  have hstandardOption :
-      ShapeShanten hand .standard = some standardValue :=
-    (shapeShanten_eq_some_iff).2 hstandard
+  obtain ⟨mentsuValue, hmentsu⟩ :=
+    exists_isShapeShanten_mentsu_of_thirteenTileHand hand hthirteen
+  have hmentsuOption :
+      ShapeShanten hand .mentsu = some mentsuValue :=
+    (shapeShanten_eq_some_iff).2 hmentsu
   unfold IsOverallShanten OverallShanten
-  rw [hstandardOption]
+  rw [hmentsuOption]
   cases hseven : ShapeShanten hand .sevenPairs <;>
     cases horphans : ShapeShanten hand .thirteenOrphans <;>
       simp [minOption, hseven, horphans]
 
-lemma StandardBlockDecomposition.exists_isShapeShanten
-    {hand : Hand} (decomposition : StandardBlockDecomposition hand)
+lemma MentsuBlockDecomposition.exists_isShapeShanten
+    {hand : Hand} (decomposition : MentsuBlockDecomposition hand)
     (hbeforeValid : ValidCounts hand)
     (hstanding : tileCount hand + 3 * hand.fixedMelds = 13) :
-    ∃ value : Int, IsShapeShanten hand .standard value := by
+    ∃ value : Int, IsShapeShanten hand .mentsu value := by
   let melds :=
     decomposition.melds ++
       taatsuCompletionMelds decomposition.taatsus
   have htarget :
-      standardTarget decomposition.pair melds =
+      mentsuTarget decomposition.pair melds =
         decomposition.completedTarget := by
-    rw [StandardBlockDecomposition.completedTarget_eq]
+    rw [MentsuBlockDecomposition.completedTarget_eq]
     rfl
   have hmelds :
       melds.length + hand.fixedMelds = 4 := by
     dsimp [melds]
     exact decomposition.completedMeldCount
   have htargetCard :
-      (standardTarget decomposition.pair melds).card =
+      (mentsuTarget decomposition.pair melds).card =
         tileCount hand + 1 := by
-    rw [htarget, StandardBlockDecomposition.completedTarget_eq]
+    rw [htarget, MentsuBlockDecomposition.completedTarget_eq]
     simp [Multiset.card_add, pairTiles_card, meldsTiles_card,
       List.length_append, taatsuCompletionMelds_length]
     have hblocks := decomposition.blocks
     omega
   have hsum :
       (∑ tile : Tile,
-        countsOfTiles (standardTarget decomposition.pair melds) tile) =
+        countsOfTiles (mentsuTarget decomposition.pair melds) tile) =
         (∑ tile : Tile, hand.counts tile) + 1 := by
     calc
-      _ = (standardTarget decomposition.pair melds).card := by
+      _ = (mentsuTarget decomposition.pair melds).card := by
         exact countsOfTiles_sum_eq_card
-          (standardTarget decomposition.pair melds)
+          (mentsuTarget decomposition.pair melds)
       _ = tileCount hand + 1 := htargetCard
       _ = (∑ tile : Tile, hand.counts tile) + 1 := by
         rfl
   have hvalid :
       ValidCounts
         (targetHand hand
-          (countsOfTiles (standardTarget decomposition.pair melds))) := by
+          (countsOfTiles (mentsuTarget decomposition.pair melds))) := by
     rw [htarget]
     exact decomposition.validCounts_completedTarget
-  exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+  exact exists_isShapeShanten_mentsu_of_valid_mentsuTarget_one_more
     hand hbeforeValid
     ⟨decomposition.pair, melds, hmelds, hsum, hvalid⟩
 
-lemma standardTarget_count_le_stateHistoryTiles
-    (state : StandardSearchState) (pair : Tile)
+lemma mentsuTarget_count_le_stateHistoryTiles
+    (state : MentsuSearchState) (pair : Tile)
     (hpair : state.pair = some pair) :
     ∀ tile,
-      (standardTarget pair state.meldHistory.reverse).count tile ≤
+      (mentsuTarget pair state.meldHistory.reverse).count tile ≤
         (stateHistoryTiles state).count tile := by
   intro tile
-  simp [standardTarget, stateHistoryTiles, pairHistoryTiles, hpair,
+  simp [mentsuTarget, stateHistoryTiles, pairHistoryTiles, hpair,
     Multiset.count_add]
 
-lemma standardTarget_count_le_used
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma mentsuTarget_count_le_used
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) (pair : Tile)
     (hpair : state.pair = some pair) :
     ∀ tile,
-      (standardTarget pair state.meldHistory.reverse).count tile ≤
+      (mentsuTarget pair state.meldHistory.reverse).count tile ≤
         state.used.count tile := by
   intro tile
   rw [reachableWithin_used_eq_historyTiles hand fuel state hreachable]
-  exact standardTarget_count_le_stateHistoryTiles state pair hpair tile
+  exact mentsuTarget_count_le_stateHistoryTiles state pair hpair tile
 
-lemma standardTarget_count_le_hand
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma mentsuTarget_count_le_hand
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state) (pair : Tile)
     (hpair : state.pair = some pair) :
     ∀ tile,
-      (standardTarget pair state.meldHistory.reverse).count tile ≤
+      (mentsuTarget pair state.meldHistory.reverse).count tile ≤
         hand.counts tile := by
   intro tile
   exact le_trans
-    (standardTarget_count_le_used hand fuel state hreachable pair hpair tile)
+    (mentsuTarget_count_le_used hand fuel state hreachable pair hpair tile)
     (reachableWithin_used_subset hand fuel state hreachable tile)
 
-lemma standardTarget_hasMeldCount_of_complete
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma mentsuTarget_hasMeldCount_of_complete
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state)
-    (hcomplete : IsStandardSearchComplete hand state) :
-    HasStandardMeldCount hand state.meldHistory.reverse := by
+    (hcomplete : IsMentsuSearchComplete hand state) :
+    HasMentsuMeldCount hand state.meldHistory.reverse := by
   have hlength := reachableWithin_melds_eq_history_length
     hand fuel state hreachable
   rcases hcomplete with ⟨hmelds, _⟩
-  unfold HasStandardMeldCount
+  unfold HasMentsuMeldCount
   simpa [List.length_reverse, hlength] using hmelds
 
-lemma standardTargetOfState_exists_of_complete
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma mentsuTargetOfState_exists_of_complete
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state)
-    (hcomplete : IsStandardSearchComplete hand state) :
-    ∃ target, standardTargetOfState state = some target ∧
-      HasStandardMeldCount hand state.meldHistory.reverse := by
+    (hcomplete : IsMentsuSearchComplete hand state) :
+    ∃ target, mentsuTargetOfState state = some target ∧
+      HasMentsuMeldCount hand state.meldHistory.reverse := by
   cases hpair : state.pair with
   | none =>
       exfalso
       simpa [hpair] using hcomplete.2
   | some pair =>
-      refine ⟨standardTarget pair state.meldHistory.reverse, ?_, ?_⟩
-      · rw [standardTargetOfState, hpair]
+      refine ⟨mentsuTarget pair state.meldHistory.reverse, ?_, ?_⟩
+      · rw [mentsuTargetOfState, hpair]
         rfl
-      · exact standardTarget_hasMeldCount_of_complete
+      · exact mentsuTarget_hasMeldCount_of_complete
           hand fuel state hreachable hcomplete
 
 lemma completedMeldsForState_hasMeldCount
-    (hand : Hand) (fuel : Nat) (state : StandardSearchState)
+    (hand : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin hand fuel state)
     (hcount : state.melds + state.taatsu + hand.fixedMelds = 4) :
-    HasStandardMeldCount hand (completedMeldsForState state) := by
+    HasMentsuMeldCount hand (completedMeldsForState state) := by
   have hmelds := reachableWithin_melds_eq_history_length
     hand fuel state hreachable
   have htaatsu := reachableWithin_taatsu_eq_history_length
     hand fuel state hreachable
-  unfold HasStandardMeldCount
+  unfold HasMentsuMeldCount
   rw [completedMeldsForState_length, ← hmelds, ← htaatsu]
   omega
 
-lemma complete_standard_of_blockSearch
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma complete_mentsu_of_blockSearch
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin before fuel state)
-    (hcomplete : IsStandardBlockSearchComplete before state)
+    (hcomplete : IsMentsuBlockSearchComplete before state)
     (hvalid : ∀ pair, state.pair = some pair →
       ValidCounts
         (targetHand before
           (countsOfTiles (completedTargetForState state pair)))) :
     ∃ pair,
-      Complete .standard
+      Complete .mentsu
         (targetHand before
           (countsOfTiles (completedTargetForState state pair))) := by
   rcases hcomplete with ⟨hcount, hpair⟩
@@ -3745,18 +3745,18 @@ lemma complete_standard_of_blockSearch
       simp [hstatePair] at hpair
   | some pair =>
       refine ⟨pair, ?_⟩
-      apply complete_standard_completedTarget before state pair
+      apply complete_mentsu_completedTarget before state pair
       · exact hvalid pair hstatePair
       · exact completedMeldsForState_hasMeldCount
           before fuel state hreachable hcount
 
-lemma complete_standard_of_blockSearch_of_copyLimit
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma complete_mentsu_of_blockSearch_of_copyLimit
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithin before fuel state)
-    (hcomplete : IsStandardBlockSearchComplete before state)
+    (hcomplete : IsMentsuBlockSearchComplete before state)
     (hcopy : CompletionRespectsCopyLimit state) :
     ∃ pair,
-      Complete .standard
+      Complete .mentsu
         (targetHand before
           (countsOfTiles (completedTargetForState state pair))) := by
   rcases hcomplete with ⟨hcount, hpair⟩
@@ -3765,34 +3765,34 @@ lemma complete_standard_of_blockSearch_of_copyLimit
       simp [hstatePair] at hpair
   | some pair =>
       refine ⟨pair, ?_⟩
-      apply complete_standard_completedTarget before state pair
+      apply complete_mentsu_completedTarget before state pair
       · exact validCounts_completedTarget_of_copyLimit
           before fuel state hreachable hcopy pair hstatePair
       · exact completedMeldsForState_hasMeldCount
           before fuel state hreachable hcount
 
-lemma complete_standard_of_constrainedBlockSearch
-    (before : Hand) (fuel : Nat) (state : StandardSearchState)
+lemma complete_mentsu_of_constrainedBlockSearch
+    (before : Hand) (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit before fuel state)
-    (hcomplete : IsStandardBlockSearchComplete before state) :
+    (hcomplete : IsMentsuBlockSearchComplete before state) :
     ∃ pair,
-      Complete .standard
+      Complete .mentsu
         (targetHand before
           (countsOfTiles (completedTargetForState state pair))) := by
-  exact complete_standard_of_blockSearch_of_copyLimit
+  exact complete_mentsu_of_blockSearch_of_copyLimit
     before fuel state
     (reachableWithinWithCopyLimit_to_reachableWithin
       before fuel state hreachable)
     hcomplete
     (reachableWithinWithCopyLimit_copyLimit before fuel state hreachable)
 
-lemma exists_isShapeShanten_standard_of_constrainedBlockSearch
+lemma exists_isShapeShanten_mentsu_of_constrainedBlockSearch
     (before : Hand) (hbeforeValid : ValidCounts before)
     (hstanding : tileCount before + 3 * before.fixedMelds = 13)
-    (fuel : Nat) (state : StandardSearchState)
+    (fuel : Nat) (state : MentsuSearchState)
     (hreachable : reachableWithinWithCopyLimit before fuel state)
-    (hcomplete : IsStandardBlockSearchComplete before state) :
-    ∃ value : Int, IsShapeShanten before .standard value := by
+    (hcomplete : IsMentsuBlockSearchComplete before state) :
+    ∃ value : Int, IsShapeShanten before .mentsu value := by
   have hreachable' :
       reachableWithin before fuel state :=
     reachableWithinWithCopyLimit_to_reachableWithin
@@ -3812,7 +3812,7 @@ lemma exists_isShapeShanten_standard_of_constrainedBlockSearch
         exact completedMeldsForState_hasMeldCount
           before fuel state hreachable' hcount
       have htarget :
-          standardTarget pair melds =
+          mentsuTarget pair melds =
             completedTargetForState state pair := by
         rfl
       have hsum' :=
@@ -3820,7 +3820,7 @@ lemma exists_isShapeShanten_standard_of_constrainedBlockSearch
           before fuel state hreachable' hcount pair
       have hsum :
           (∑ tile : Tile,
-            countsOfTiles (standardTarget pair melds) tile) =
+            countsOfTiles (mentsuTarget pair melds) tile) =
             (∑ tile : Tile, before.counts tile) + 1 := by
         calc
           _ = 14 - 3 * before.fixedMelds := by
@@ -3832,11 +3832,11 @@ lemma exists_isShapeShanten_standard_of_constrainedBlockSearch
             rfl
       have hvalid :
           ValidCounts
-            (targetHand before (countsOfTiles (standardTarget pair melds))) := by
+            (targetHand before (countsOfTiles (mentsuTarget pair melds))) := by
         rw [htarget]
         exact validCounts_completedTarget_of_copyLimit
           before fuel state hreachable' hcopy pair hstatePair
-      exact exists_isShapeShanten_standard_of_valid_standardTarget_one_more
+      exact exists_isShapeShanten_mentsu_of_valid_mentsuTarget_one_more
         before hbeforeValid
         ⟨pair, melds, hmelds, hsum, hvalid⟩
 

@@ -3,7 +3,7 @@ import Shanten.Core
 namespace Shanten
 
 inductive Shape
-  | standard
+  | mentsu
   | sevenPairs
   | thirteenOrphans
   deriving DecidableEq
@@ -11,12 +11,12 @@ inductive Shape
 /-- The two special shapes are applicable only when the hand has no fixed melds. -/
 def Applicable (shape : Shape) (hand : Hand) : Prop :=
   match shape with
-  | .standard => True
+  | .mentsu => True
   | .sevenPairs | .thirteenOrphans => hand.fixedMelds = 0
 
 /-- Every normalized tile kind occurs at most four times. -/
 def Complete : Shape → Hand → Prop
-  | .standard, hand =>
+  | .mentsu, hand =>
       ValidCounts hand ∧
         ∃ pair melds,
           melds.length + hand.fixedMelds = 4 ∧
@@ -129,7 +129,7 @@ finite value. Shapes with no value are omitted from the minimum.
 -/
 noncomputable def OverallShanten (hand : Hand) : Option Int :=
   minOption
-    (ShapeShanten hand .standard)
+    (ShapeShanten hand .mentsu)
     (minOption
       (ShapeShanten hand .sevenPairs)
       (ShapeShanten hand .thirteenOrphans))

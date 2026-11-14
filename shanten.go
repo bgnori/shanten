@@ -4,7 +4,7 @@ package shanten
 
 import "errors"
 
-const ContractVersion = "aka37-shanten/v1"
+const ContractVersion = "aka37-shanten/v2"
 
 // Counts37 preserves aka-five identity in aka37 Int37 order.
 type Counts37 [37]int
@@ -39,10 +39,10 @@ type ShapeResult struct {
 }
 
 type Result struct {
-	Standard        int
+	Mentsu          int
 	SevenPairs      ShapeResult
 	ThirteenOrphans ShapeResult
-	// Shanten is the minimum over Standard and applicable special shapes.
+	// Shanten is the minimum over Mentsu and applicable special shapes.
 	Shanten int
 }
 

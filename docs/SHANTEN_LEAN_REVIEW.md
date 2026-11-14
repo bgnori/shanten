@@ -46,7 +46,7 @@
 ### High: 固定面子の牌内容がモデルに存在しない
 
 [Hand](/workspaces/shanten/Shanten.lean:24) は `counts` と `fixedMelds : Nat` だけを持ち、
-固定面子がどの牌を消費しているかを記録しない。`Complete .standard` は
+固定面子がどの牌を消費しているかを記録しない。`Complete .mentsu` は
 `melds.length + hand.fixedMelds = 4` だけを見ており、固定面子の牌を
 `HasTiles` の対象に含めていない。
 
