@@ -76,7 +76,7 @@ import Shanten.Bounds
 - `IsOverallShanten`
 - `minOption`
 
-`Complete` は当面、標準形・七対子・国士無双を一つの `Shape` による
+`Complete` は当面、面子手・七対子・国士無双を一つの `Shape` による
 定義として維持する。各形の証明が揃っていない段階で、無理に形ごとの
 完全な仕様ファイルへ分割しない。
 
@@ -118,7 +118,7 @@ import Shanten.Bounds
 - `sevenPairsShanten_le_six_of_completion_bound`
 - `standardShanten_le_eight_of_completion_bound`
 - `overallShanten_le_eight_of_fixedMelds`
-- 標準形・国士無双向けの上界定理
+- 面子手・国士無双向けの上界定理
 - 国士無双の直接計算に関する定理
 
 DPの探索状態・遷移・評価関数そのものは、このファイルには置かない。実行用計算器
@@ -127,13 +127,13 @@ DPの探索状態・遷移・評価関数そのものは、このファイルに
 
 ### `Standard.lean`
 
-実行用計算器と証明で共有する、標準形の有限探索基盤を置く。
+実行用計算器と証明で共有する、面子手の有限探索基盤を置く。
 
 - `StandardSearchState`
 - `standardTarget`
 - `targetDeficit`
 - `standardTargetDistance`
-- 標準形の目標と探索状態に関する不変条件
+- 面子手の目標と探索状態に関する不変条件
 
 このファイルには、総合シャンテン値や上界定理を置かない。まず枝刈りのないDPを
 実装し、その健全性・完全性を証明した後、`Bounds.lean` から到達性補題として
@@ -178,7 +178,7 @@ Core
 
 以下は今回の4ファイル分割の対象外とする。
 
-- `Complete` の標準形・七対子・国士無双ごとの完全な分離
+- `Complete` の面子手・七対子・国士無双ごとの完全な分離
 - 七対子の証明を交換操作ごとに複数ファイルへ分割すること
 - 固定面子の牌内容を `Hand` に追加するモデル変更
 - 面子手および国士無双の未完成な証明を先回りして配置すること

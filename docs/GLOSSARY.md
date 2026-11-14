@@ -17,8 +17,8 @@
 
 | 混同しやすい語 | このリポジトリでの区別 |
 |---|---|
-| **面子** と **ブロック** | 面子は完成した3枚組（槓はゲーム上4枚でも1面子）。ブロックは完成面子または搭子で、未完成の標準形にも使う。 |
-| **雀頭** と **対子形搭子** | どちらも同じ牌2枚だが、雀頭は標準形で別枠の1組として選んだもの。対子形搭子は面子系ブロックの候補。 |
+| **面子** と **ブロック** | 面子は完成した3枚組（槓はゲーム上4枚でも1面子）。ブロックは完成面子または搭子で、未完成の面子手にも使う。 |
+| **雀頭** と **対子形搭子** | どちらも同じ牌2枚だが、雀頭は面子手で別枠の1組として選んだもの。対子形搭子は面子系ブロックの候補。 |
 | **固定面子** と Leanの `Meld` | Go契約の固定面子は副露・暗槓など入力に含まれる面子。Leanの `Meld` は現在、探索中の（主に門前の）完成面子を表す。 |
 | **牌種** と **牌** | 牌種は「5萬」のような種類。牌は実物1枚を指すことがある。Leanの `Tile` は牌種で、個々の牌の識別子ではない。 |
 | **シャンテン数** と **距離** | 距離0は完成、距離1はテンパイ。シャンテン数は距離から1を引いた値なので、完成は-1、テンパイは0。 |
@@ -89,7 +89,7 @@
   あるため、この契約では状態名として「standing」を優先する。
 
 - **固定面子 (fixed meld)** `[麻雀][Go]`
-  副露面子または暗槓など、入力時点ですでに確定している面子。標準形では
+  副露面子または暗槓など、入力時点ですでに確定している面子。面子手では
   面子1個として数える。暗槓は門前扱いを保つことがあるが、七対子・国士無双を
   適用可能にはしない。
 
@@ -111,11 +111,11 @@
   面子であり、ポンと別の面子として数えない。
 
 - **対子 (pair)** `[麻雀]`
-  同じ牌種2枚の組。標準形の雀頭にも、標準形の対子形搭子にもなりうる。
+  同じ牌種2枚の組。面子手の雀頭にも、面子手の対子形搭子にもなりうる。
   七対子では異なる7牌種それぞれの対を指す。
 
 - **雀頭 (head / pair)** `[麻雀][Lean]`
-  標準形で面子系ブロック4個とは別に必要な1対。Leanの標準探索では
+  面子手で面子系ブロック4個とは別に必要な1対。Leanの面子手探索では
   `StandardSearchState.pair : Option Tile` が候補の有無を表す。
 
 - **搭子 (taatsu)** `[麻雀][Lean]`
@@ -124,10 +124,10 @@
   呼び方は麻雀上の待ちの説明であり、モデル上は順子形搭子として扱う。
 
 - **ブロック (block)** `[麻雀][プロジェクト]`
-  標準形の面子系部品。完成面子または搭子を指す。未完成分解は
+  面子手の面子系部品。完成面子または搭子を指す。未完成分解は
   **4ブロック＋雀頭**、完成形は**4面子＋雀頭**と表現する。
 
-- **標準形 / 面子手 (standard form)** `[麻雀]`
+- **面子手 (standard form)** `[麻雀]`
   4面子と1雀頭からなる形。固定面子も4面子の一部として数える。
   Leanの `Shape.standard` がこの形を表す。
 
@@ -152,11 +152,11 @@
   共有する。
 
 - **形 (shape)** `[数学][Lean]`
-  標準形・七対子・国士無双のいずれか。Leanの `Shape` はこの3候補を列挙する
+  面子手・七対子・国士無双のいずれか。Leanの `Shape` はこの3候補を列挙する
   型であり、一般的な「形状」という意味の語と区別する。
 
 - **適用可能性 (applicability)** `[数学][Go][Lean]`
-  その形を手牌に対して評価してよいか。標準形は常に適用可能。七対子と
+  その形を手牌に対して評価してよいか。面子手は常に適用可能。七対子と
   国士無双は固定面子がない場合だけ適用可能。適用不可はエラーではない。
 
 ## Go・情報技術の用語
@@ -204,7 +204,7 @@
   `Core` などをimportする互換入口である。
 
 - **動的計画法 (dynamic programming, DP)** `[アルゴリズム]`
-  部分問題の状態を再利用して有限探索を行う方法。標準形では、牌を使った量、
+  部分問題の状態を再利用して有限探索を行う方法。面子手では、牌を使った量、
   雀頭・面子・搭子の履歴などを `StandardSearchState` に保存する。
 
 ## Lean4・数学的証明の用語
@@ -278,7 +278,7 @@
 
 - **遷移 (step / transition)** `[数学][アルゴリズム]`
   ある状態から次の状態へ進む1回の操作。`HandStep` は牌を引く、または1枚を
-  別の牌種に交換する改善操作、`NextStandardState` は標準形DPの1選択を表す。
+  別の牌種に交換する改善操作、`NextStandardState` は面子手DPの1選択を表す。
 
 - **最短距離 (minimal distance)** `[数学]`
   到達可能な距離のうち最小のもの。距離0が完成、距離1がテンパイになるため、
@@ -309,11 +309,11 @@
 | `ReachesCompletion` | 指定回数の `HandStep` で完成条件へ到達する関係。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `ShapeShanten` | 形ごとの最小到達距離をシャンテン値へ変換した、値の候補。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
 | `OverallShanten` | 適用可能な形のシャンテン値の最小値。 | [`Shanten/Specification.lean`](../Shanten/Specification.lean) |
-| `StandardSearchState` | 標準形DPの状態。使用牌、雀頭、面子・搭子の履歴と個数を持つ。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
-| `StandardChoice` | 標準形DPの1分岐。`skip`、雀頭、搭子、面子を選ぶ。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
-| `StandardSearch` | 完成面子4個＋雀頭という、現行の標準形探索の完了条件。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
+| `StandardSearchState` | 面子手DPの状態。使用牌、雀頭、面子・搭子の履歴と個数を持つ。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
+| `StandardChoice` | 面子手DPの1分岐。`skip`、雀頭、搭子、面子を選ぶ。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
+| `StandardSearch` | 完成面子4個＋雀頭という、現行の面子手探索の完了条件。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
 | `StandardBlockSearch` | 面子＋搭子の合計4ブロック＋雀頭というブロック探索の完了条件。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
-| `StandardBlockDecomposition` | 標準形を雀頭・完成面子・搭子へ分解した証明付き構造。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
+| `StandardBlockDecomposition` | 面子手を雀頭・完成面子・搭子へ分解した証明付き構造。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
 | `target` | 到達したい完成形の牌の多重集合。`standardTarget` などで構成する。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
 | `deficit` | 現在のカウントが目標に不足する枚数。必要な交換・ドローの下限に使う。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) / [`Shanten/SevenPairs.lean`](../Shanten/SevenPairs.lean) |
 | `CompletionRespectsCopyLimit` | 搭子を補充して完成させても、各牌種4枚を超えないという述語。 | [`Shanten/Standard.lean`](../Shanten/Standard.lean) |
@@ -324,7 +324,7 @@
 
 ## 表記上のルール
 
-1. 最終完成形だけを指すときは「4面子＋雀頭」、未完成の標準形分解を指すときは
+1. 最終完成形だけを指すときは「4面子＋雀頭」、未完成の面子手分解を指すときは
    「4ブロック＋雀頭」と書く。
 2. 「距離」と「シャンテン数」を同じ数として説明しない。必要なら
    `shanten = distance - 1` と明記する。
